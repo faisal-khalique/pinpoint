@@ -19,6 +19,7 @@ package com.navercorp.pinpoint.collector.mapper.grpc.event;
 import com.navercorp.pinpoint.common.server.bo.event.AgentEventBo;
 import com.navercorp.pinpoint.common.util.CollectionUtils;
 import com.navercorp.pinpoint.grpc.AgentHeaderFactory;
+import com.navercorp.pinpoint.grpc.Header;
 import com.navercorp.pinpoint.grpc.trace.PAgentStat;
 import com.navercorp.pinpoint.grpc.trace.PDeadlock;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,18 +34,14 @@ public class GrpcAgentEventMapper {
     @Autowired
     private GrpcDeadlockEventBoMapper deadlockEventBoMapper;
 
-    public AgentEventBo map(final PAgentStat tAgentStat, final AgentHeaderFactory.Header header) {
-        if (tAgentStat == null) {
-            return null;
-        }
-
+    public AgentEventBo map(final PAgentStat agentStat, final Header header) {
         final String agentId = header.getAgentId();
         final long startTimestamp = header.getAgentStartTime();
-        final long timestamp = tAgentStat.getTimestamp();
+        final long timestamp = agentStat.getTimestamp();
 
-        final PDeadlock deadlock = tAgentStat.getDeadlock();
-        if (deadlock != null) {
-            if (deadlock != null && CollectionUtils.hasLength(deadlock.getThreadDumpList())) {
+        if (agentStat.hasDeadlock()) {
+            final PDeadlock deadlock = agentStat.getDeadlock();
+            if (CollectionUtils.hasLength(deadlock.getThreadDumpList())) {
                 return deadlockEventBoMapper.map(agentId, startTimestamp, timestamp, deadlock);
             }
         }

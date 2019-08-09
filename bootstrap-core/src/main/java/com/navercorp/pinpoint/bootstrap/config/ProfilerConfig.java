@@ -21,6 +21,7 @@ import com.navercorp.pinpoint.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * @author Woonduk Kang(emeroad)
@@ -32,8 +33,6 @@ public interface ProfilerConfig {
     String getTransportModule();
 
     ThriftTransportConfig getThriftTransportConfig();
-
-    GrpcTransportConfig getGrpcTransportConfig();
 
     /**
      * @deprecated Use {@link #getThriftTransportConfig()} (int)} instead.
@@ -227,6 +226,10 @@ public interface ProfilerConfig {
 
     int getSamplingRate();
 
+    int getSamplingNewThroughput();
+
+    int getSamplingContinueThroughput();
+
     boolean isIoBufferingEnable();
 
     int getIoBufferingBufferSize();
@@ -280,6 +283,8 @@ public interface ProfilerConfig {
 
     String readString(String propertyName, String defaultValue);
 
+    String readString(String propertyName, String defaultValue, ValueResolver valueResolver);
+
     int readInt(String propertyName, int defaultValue);
 
     DumpType readDumpType(String propertyName, DumpType defaultDump);
@@ -291,5 +296,9 @@ public interface ProfilerConfig {
     boolean readBoolean(String propertyName, boolean defaultValue);
 
     Map<String, String> readPattern(String propertyNamePatternRegex);
+
+    interface ValueResolver {
+        String resolve(String value, Properties properties);
+    }
 
 }

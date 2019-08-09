@@ -17,32 +17,52 @@
 package com.navercorp.pinpoint.collector.receiver.grpc;
 
 import com.navercorp.pinpoint.collector.receiver.DispatchHandler;
+import com.navercorp.pinpoint.collector.receiver.grpc.service.SpanService;
 import com.navercorp.pinpoint.common.server.util.AddressFilter;
+import com.navercorp.pinpoint.grpc.server.ServerOption;
 import com.navercorp.pinpoint.grpc.trace.PResult;
 import com.navercorp.pinpoint.io.request.ServerRequest;
 import com.navercorp.pinpoint.io.request.ServerResponse;
+import io.grpc.Attributes;
+import io.grpc.BindableService;
+import io.grpc.ConnectivityStateInfo;
+import io.grpc.EquivalentAddressGroup;
+import io.grpc.LoadBalancer;
+import io.grpc.PickFirstBalancerFactory;
+import io.grpc.Status;
 
 import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static io.grpc.ConnectivityState.CONNECTING;
+
+/**
+ * @author jaehong.kim
+ */
 public class SpanServerTestMain {
     public static final String IP = "0.0.0.0";
     public static final int PORT = 9998;
 
     public void run() throws Exception {
-        SpanServer server = new SpanServer();
-        server.setBeanName("TraceServer");
-        server.setBindPort(PORT);
-        server.setDispatchHandler(new MockDispatchHandler());
-        server.setAddressFilter(new MockAddressFilter());
-        server.setExecutor(Executors.newFixedThreadPool(8));
-        server.setEnable(true);
+        GrpcReceiver grpcReceiver = new GrpcReceiver();
+        grpcReceiver.setBeanName("TraceServer");
+        grpcReceiver.setBindIp(IP);
+        grpcReceiver.setBindPort(PORT);
+        BindableService bindableService = new SpanService(new MockDispatchHandler());
+        grpcReceiver.setBindableServiceList(Arrays.asList(bindableService));
+        grpcReceiver.setAddressFilter(new MockAddressFilter());
+        grpcReceiver.setExecutor(Executors.newFixedThreadPool(8));
+        grpcReceiver.setEnable(true);
+        grpcReceiver.setServerOption(new ServerOption.Builder().build());
 
-        server.afterPropertiesSet();
+        grpcReceiver.afterPropertiesSet();
 
-        server.blockUntilShutdown();
-        server.destroy();
+        grpcReceiver.blockUntilShutdown();
+        grpcReceiver.destroy();
     }
 
     public static void main(String[] args) throws Exception {

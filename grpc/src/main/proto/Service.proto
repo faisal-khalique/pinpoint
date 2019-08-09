@@ -3,6 +3,7 @@ syntax = "proto3";
 import "google/protobuf/empty.proto";
 import "Span.proto";
 import "Stat.proto";
+import "ThreadDump.proto";
 import "Cmd.proto";
 
 option java_multiple_files = true;
@@ -13,18 +14,18 @@ option java_outer_classname = "ServiceProto";
 package v1;
 
 service Span {
-    rpc SendSpan (stream PSpan) returns (google.protobuf.Empty) {
-    }
-
-    rpc SendSpanChunk (stream PSpanChunk) returns (google.protobuf.Empty) {
+    rpc SendSpan (stream PSpanMessage) returns (google.protobuf.Empty) {
     }
 }
 
 service Agent {
-    rpc SendAgentInfo (stream PAgentInfo) returns (google.protobuf.Empty) {
-    }
     rpc RequestAgentInfo (PAgentInfo) returns (PResult) {
     }
+    rpc PingSession (stream PPing) returns (stream PPing) {
+    }
+}
+
+service Metadata {
     rpc RequestSqlMetaData (PSqlMetaData) returns (PResult) {
     }
     rpc RequestApiMetaData (PApiMetaData) returns (PResult) {
@@ -34,14 +35,7 @@ service Agent {
 }
 
 service Stat {
-    rpc SendAgentStat (stream PAgentStat) returns (google.protobuf.Empty) {
-    }
-    rpc SendAgentStatBatch (stream PAgentStatBatch) returns (google.protobuf.Empty) {
-    }
-}
-
-service KeepAlive {
-    rpc ClientKeepAlive (stream PPing) returns (stream PPing) {
+    rpc SendAgentStat (stream PStatMessage) returns (google.protobuf.Empty) {
     }
 }
 
@@ -50,5 +44,14 @@ service ProfilerCommandService {
     }
 
     rpc CommandEcho (PCmdEchoResponse) returns (google.protobuf.Empty) {
+    }
+
+    rpc CommandStreamActiveThreadCount (stream PCmdActiveThreadCountRes) returns (google.protobuf.Empty) {
+    }
+
+    rpc CommandActiveThreadDump (PCmdActiveThreadDumpRes) returns (google.protobuf.Empty) {
+    }
+
+    rpc CommandActiveThreadLightDump (PCmdActiveThreadLightDumpRes) returns (google.protobuf.Empty) {
     }
 }

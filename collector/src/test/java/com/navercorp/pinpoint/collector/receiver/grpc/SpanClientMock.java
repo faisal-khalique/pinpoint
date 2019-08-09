@@ -18,9 +18,10 @@ package com.navercorp.pinpoint.collector.receiver.grpc;
 
 import com.google.protobuf.Empty;
 import com.navercorp.pinpoint.grpc.AgentHeaderFactory;
-import com.navercorp.pinpoint.grpc.HeaderFactory;
+import com.navercorp.pinpoint.grpc.client.HeaderFactory;
 import com.navercorp.pinpoint.grpc.trace.PSpan;
 import com.navercorp.pinpoint.grpc.trace.PSpanChunk;
+import com.navercorp.pinpoint.grpc.trace.PSpanMessage;
 import com.navercorp.pinpoint.grpc.trace.SpanGrpc;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
@@ -31,6 +32,8 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class SpanClientMock {
@@ -41,8 +44,7 @@ public class SpanClientMock {
 
     public SpanClientMock(final String host, final int port) throws Exception {
         NettyChannelBuilder builder = NettyChannelBuilder.forAddress(host, port);
-        AgentHeaderFactory.Header header = new AgentHeaderFactory.Header("mockAgentId", "mockApplicationName", System.currentTimeMillis());
-        HeaderFactory headerFactory = new AgentHeaderFactory(header);
+        HeaderFactory headerFactory = new AgentHeaderFactory("mockAgentId", "mockApplicationName", System.currentTimeMillis());
         final Metadata extraHeaders = headerFactory.newHeader();
         final ClientInterceptor headersInterceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders);
         builder.intercept(headersInterceptor);
@@ -50,6 +52,7 @@ public class SpanClientMock {
 
         channel = builder.build();
         this.spanStub = SpanGrpc.newStub(channel);
+        logger.info("CallOptions={}, channel={}", spanStub.getCallOptions(), spanStub.getChannel());
     }
 
     public void stop() throws InterruptedException {
@@ -64,14 +67,28 @@ public class SpanClientMock {
         span(1);
     }
 
+    ExecutorService service = Executors.newFixedThreadPool(1);
+
     public void span(int count) {
-        StreamObserver<Empty> responseObserver = getResponseObserver();
-        StreamObserver<PSpan> requestObserver = spanStub.sendSpan(responseObserver);
-        for (int i = 0; i < count; i++) {
-            final PSpan span = PSpan.newBuilder().build();
-            requestObserver.onNext(span);
-        }
-        requestObserver.onCompleted();
+        service.execute(new Runnable() {
+            @Override
+            public void run() {
+                StreamObserver<Empty> responseObserver = getResponseObserver();
+
+                StreamObserver<PSpanMessage> requestObserver = spanStub.sendSpan(responseObserver);
+                for (int i = 0; i < count; i++) {
+                    final PSpan span = PSpan.newBuilder().build();
+                    final PSpanMessage spanMessage = PSpanMessage.newBuilder().setSpan(span).build();
+                    requestObserver.onNext(spanMessage);
+                    try {
+                        TimeUnit.SECONDS.sleep(1);
+
+                    } catch (InterruptedException e) {
+                    }
+                }
+                requestObserver.onCompleted();
+            }
+        });
     }
 
     public void spanChunk() {
@@ -79,14 +96,26 @@ public class SpanClientMock {
     }
 
     public void spanChunk(final int count) {
-        StreamObserver<Empty> responseObserver = getResponseObserver();
+        service.execute(new Runnable() {
+            @Override
+            public void run() {
 
-        StreamObserver<PSpanChunk> requestObserver = spanStub.sendSpanChunk(responseObserver);
-        for (int i = 0; i < count; i++) {
-            final PSpanChunk spanChunk = PSpanChunk.newBuilder().build();
-            requestObserver.onNext(spanChunk);
-        }
-        requestObserver.onCompleted();
+                StreamObserver<Empty> responseObserver = getResponseObserver();
+
+                StreamObserver<PSpanMessage> requestObserver = spanStub.sendSpan(responseObserver);
+                for (int i = 0; i < count; i++) {
+                    final PSpanChunk spanChunk = PSpanChunk.newBuilder().build();
+                    final PSpanMessage spanMessage = PSpanMessage.newBuilder().setSpanChunk(spanChunk).build();
+                    requestObserver.onNext(spanMessage);
+                    try {
+                        TimeUnit.SECONDS.sleep(1);
+                    } catch (InterruptedException e) {
+                    }
+                }
+                requestObserver.onCompleted();
+            }
+        });
+
     }
 
     private StreamObserver<Empty> getResponseObserver() {

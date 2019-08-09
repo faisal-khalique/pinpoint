@@ -52,6 +52,7 @@ export class ScatterChartContainerComponent implements OnInit, OnDestroy {
     scatterChartMode: string;
     timezone: string;
     dateFormat: string[];
+    showBlockMessagePopup = false;
     constructor(
         private storeHelperService: StoreHelperService,
         private translateService: TranslateService,
@@ -70,11 +71,13 @@ export class ScatterChartContainerComponent implements OnInit, OnDestroy {
         this.setScatterY();
         combineLatest(
             this.translateService.get('COMMON.NO_DATA'),
-            this.translateService.get('COMMON.FAILED_TO_FETCH_DATA')
+            this.translateService.get('COMMON.FAILED_TO_FETCH_DATA'),
+            this.translateService.get('COMMON.POPUP_BLOCK_MESSAGE')
         ).subscribe((i18n: string[]) => {
             this.i18nText = {
                 NO_DATA: i18n[0],
-                FAILED_TO_FETCH_DATA: i18n[1]
+                FAILED_TO_FETCH_DATA: i18n[1],
+                POPUP_BLOCK_MESSAGE: i18n[2]
             };
         });
         this.newUrlStateNotificationService.onUrlStateChange$.pipe(
@@ -143,7 +146,7 @@ export class ScatterChartContainerComponent implements OnInit, OnDestroy {
         this.storeHelperService.getTimezone(this.unsubscribe).subscribe((timezone: string) => {
             this.timezone = timezone;
         });
-        this.storeHelperService.getDateFormatArray(this.unsubscribe, 3, 4).subscribe((format: string[]) => {
+        this.storeHelperService.getDateFormatArray(this.unsubscribe, 4, 5).subscribe((format: string[]) => {
             this.dateFormat = format;
         });
         this.storeHelperService.getAgentSelection<string>(this.unsubscribe).subscribe((agent: string) => {
@@ -231,8 +234,9 @@ export class ScatterChartContainerComponent implements OnInit, OnDestroy {
         } else {
             this.urlRouteManagerService.openPage([
                 UrlPath.SCATTER_FULL_SCREEN_MODE,
+                UrlPathId.REAL_TIME,
                 this.newUrlStateNotificationService.getPathValue(UrlPathId.APPLICATION).getUrlStr(),
-                UrlPathId.REAL_TIME
+                this.selectedAgent
             ]);
         }
     }
@@ -269,20 +273,27 @@ export class ScatterChartContainerComponent implements OnInit, OnDestroy {
     }
     onSelectArea(params: any): void {
         this.analyticsService.trackEvent(TRACKED_EVENT_LIST.OPEN_TRANSACTION_LIST);
+        let returnOpenWindow;
         if (this.newUrlStateNotificationService.isRealTimeMode()) {
-            this.urlRouteManagerService.openPage([
+            returnOpenWindow = this.urlRouteManagerService.openPage([
                 UrlPath.TRANSACTION_LIST,
                 this.newUrlStateNotificationService.getPathValue(UrlPathId.APPLICATION).getUrlStr(),
                 this.webAppSettingDataService.getSystemDefaultPeriod().getValueWithTime(),
                 EndTime.newByNumber(this.currentRange.to).getEndTime(),
             ], `${this.selectedApplication}|${params.x.from}|${params.x.to}|${params.y.from}|${params.y.to}|${this.selectedAgent}|${params.type.join(',')}`);
         } else {
-            this.urlRouteManagerService.openPage([
+            returnOpenWindow = this.urlRouteManagerService.openPage([
                 UrlPath.TRANSACTION_LIST,
                 this.newUrlStateNotificationService.getPathValue(UrlPathId.APPLICATION).getUrlStr(),
                 this.newUrlStateNotificationService.getPathValue(UrlPathId.PERIOD).getValueWithTime(),
                 this.newUrlStateNotificationService.getPathValue(UrlPathId.END_TIME).getEndTime()
             ], `${this.selectedApplication}|${params.x.from}|${params.x.to}|${params.y.from}|${params.y.to}|${this.selectedAgent}|${params.type.join(',')}`);
         }
+        if (returnOpenWindow === null || returnOpenWindow === undefined) {
+            this.showBlockMessagePopup = true;
+        }
+    }
+    onCloseBlockMessage(): void {
+        this.showBlockMessagePopup = false;
     }
 }

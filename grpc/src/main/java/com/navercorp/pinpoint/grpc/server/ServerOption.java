@@ -16,43 +16,49 @@
 
 package com.navercorp.pinpoint.grpc.server;
 
+import com.navercorp.pinpoint.common.util.Assert;
+
 import java.util.concurrent.TimeUnit;
 
+/**
+ * @author jaehong.kim
+ */
 public class ServerOption {
-    private static final int DEFAULT_FLOW_CONTROL_WINDOW = 1048576; // 1MiB
-    private static final long DEFAULT_KEEPALIVE_TIME = TimeUnit.MINUTES.toMillis(5);
-    private static final long DEFAULT_KEEPALIVE_TIMEOUT = TimeUnit.MINUTES.toMillis(30);
-    private static final long DEFAULT_PERMIT_KEEPALIVE_TIMEOUT = TimeUnit.MINUTES.toMillis(60);
-    private static final boolean DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS = Boolean.FALSE;
+    public static final int DEFAULT_FLOW_CONTROL_WINDOW = 1048576; // 1MiB
+    public static final long DEFAULT_KEEPALIVE_TIME = TimeUnit.MINUTES.toMillis(5);
+    public static final long DEFAULT_KEEPALIVE_TIMEOUT = TimeUnit.MINUTES.toMillis(30);
+    public static final long DEFAULT_PERMIT_KEEPALIVE_TIME = TimeUnit.MINUTES.toMillis(3);
+    public static final boolean PERMIT_KEEPALIVE_WITHOUT_CALLS_DISABLE = Boolean.FALSE;
 
-    private static final long DEFAULT_MAX_CONNECTION_IDLE = Long.MAX_VALUE; // Disabled
-    private static final long DEFAULT_MAX_CONNECTION_AGE = Long.MAX_VALUE; // Disabled
-    private static final long DEFAULT_MAX_CONNECTION_AGE_GRACE = Long.MAX_VALUE; // Infinite
-    private static final int DEFAULT_MAX_CONCURRENT_CALLS_PER_CONNECTION = Integer.MAX_VALUE; // Infinite
+    public static final long DEFAULT_MAX_CONNECTION_IDLE = TimeUnit.SECONDS.toMillis(10); // 10s
+    public static final long DEFAULT_MAX_CONNECTION_AGE = Long.MAX_VALUE; // Disabled
+    public static final long DEFAULT_MAX_CONNECTION_AGE_GRACE = Long.MAX_VALUE; // Infinite
+    public static final int DEFAULT_MAX_CONCURRENT_CALLS_PER_CONNECTION = Integer.MAX_VALUE; // Infinite
 
-    private static final int DEFAULT_MAX_INBOUND_MESSAGE_SIZE = 4 * 1024 * 1024;
-    private static final int DEFAULT_MAX_HEADER_LIST_SIZE = 8192;
+    public static final int DEFAULT_MAX_INBOUND_MESSAGE_SIZE = 4 * 1024 * 1024;
+    public static final int DEFAULT_MAX_HEADER_LIST_SIZE = 8192;
 
-    private static final long DEFAULT_HANDSHAKE_TIMEOUT = TimeUnit.SECONDS.toMillis(120);
+    public static final long DEFAULT_HANDSHAKE_TIMEOUT = TimeUnit.SECONDS.toMillis(120);
+    public static final int DEFAULT_RECEIVE_BUFFER_SIZE = 64 * 1024;
 
     // Sets a custom keepalive time, the delay time for sending next keepalive ping.
     private final long keepAliveTime;
     // Sets a custom keepalive timeout, the timeout for keepalive ping requests.
     private final long keepAliveTimeout;
     // Specify the most aggressive keep-alive time clients are permitted to configure.
-    private final long permitKeepAliveTimeout;
+    private final long permitKeepAliveTime;
     // Sets whether to allow clients to send keep-alive HTTP/2 PINGs even if there are no outstanding RPCs on the connection. Defaults to {@code false}.
-    private final boolean permitKeepAliveWithoutCalls;
+    private final boolean permitKeepAliveWithoutCalls = PERMIT_KEEPALIVE_WITHOUT_CALLS_DISABLE;
 
     // Sets a custom max connection idle time, connection being idle for longer than which will be gracefully terminated.
     private final long maxConnectionIdle;
     // Sets a custom max connection age, connection lasting longer than which will be gracefully terminated.
-    private final long maxConnectionAge;
+    private final long maxConnectionAge = DEFAULT_MAX_CONNECTION_AGE;
     // Sets a custom grace time for the graceful connection termination. Once the max connection age is reached, RPCs have the grace time to complete.
-    private final long maxConnectionAgeGrace;
+    private final long maxConnectionAgeGrace = DEFAULT_MAX_CONNECTION_AGE_GRACE;
+
     // The maximum number of concurrent calls permitted for each incoming connection. Defaults to no limit.
     private final int maxConcurrentCallsPerConnection;
-
     // Sets the maximum message size allowed to be received on the server.
     private final int maxInboundMessageSize;
     // Sets the maximum size of metadata allowed to be received.
@@ -62,19 +68,20 @@ public class ServerOption {
     // Sets the HTTP/2 flow control window.
     private final int flowControlWindow;
 
-    ServerOption(long keepAliveTime, long keepAliveTimeout, long permitKeepAliveTimeout, boolean permitKeepAliveWithoutCalls, long maxConnectionIdle, long maxConnectionAge, long maxConnectionAgeGrace, int maxConcurrentCallsPerConnection, int maxInboundMessageSize, int maxHeaderListSize, long handshakeTimeout, int flowControlWindow) {
+    // ChannelOption
+    private final int receiveBufferSize;
+
+    ServerOption(long keepAliveTime, long keepAliveTimeout, long permitKeepAliveTime, long maxConnectionIdle, int maxConcurrentCallsPerConnection, int maxInboundMessageSize, int maxHeaderListSize, long handshakeTimeout, int flowControlWindow, int receiveBufferSize) {
         this.keepAliveTime = keepAliveTime;
         this.keepAliveTimeout = keepAliveTimeout;
-        this.permitKeepAliveTimeout = permitKeepAliveTimeout;
-        this.permitKeepAliveWithoutCalls = permitKeepAliveWithoutCalls;
+        this.permitKeepAliveTime = permitKeepAliveTime;
         this.maxConnectionIdle = maxConnectionIdle;
-        this.maxConnectionAge = maxConnectionAge;
-        this.maxConnectionAgeGrace = maxConnectionAgeGrace;
         this.maxConcurrentCallsPerConnection = maxConcurrentCallsPerConnection;
         this.maxInboundMessageSize = maxInboundMessageSize;
         this.maxHeaderListSize = maxHeaderListSize;
         this.handshakeTimeout = handshakeTimeout;
         this.flowControlWindow = flowControlWindow;
+        this.receiveBufferSize = receiveBufferSize;
     }
 
     public long getKeepAliveTime() {
@@ -85,8 +92,8 @@ public class ServerOption {
         return keepAliveTimeout;
     }
 
-    public long getPermitKeepAliveTimeout() {
-        return permitKeepAliveTimeout;
+    public long getPermitKeepAliveTime() {
+        return permitKeepAliveTime;
     }
 
     public boolean isPermitKeepAliveWithoutCalls() {
@@ -125,12 +132,16 @@ public class ServerOption {
         return flowControlWindow;
     }
 
+    public int getReceiveBufferSize() {
+        return receiveBufferSize;
+    }
+
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("ServerOption{");
         sb.append("keepAliveTime=").append(keepAliveTime);
         sb.append(", keepAliveTimeout=").append(keepAliveTimeout);
-        sb.append(", permitKeepAliveTimeout=").append(permitKeepAliveTimeout);
+        sb.append(", permitKeepAliveTime=").append(permitKeepAliveTime);
         sb.append(", permitKeepAliveWithoutCalls=").append(permitKeepAliveWithoutCalls);
         sb.append(", maxConnectionIdle=").append(maxConnectionIdle);
         sb.append(", maxConnectionAge=").append(maxConnectionAge);
@@ -140,6 +151,7 @@ public class ServerOption {
         sb.append(", maxHeaderListSize=").append(maxHeaderListSize);
         sb.append(", handshakeTimeout=").append(handshakeTimeout);
         sb.append(", flowControlWindow=").append(flowControlWindow);
+        sb.append(", receiveBufferSize=").append(receiveBufferSize);
         sb.append('}');
         return sb.toString();
     }
@@ -150,16 +162,10 @@ public class ServerOption {
         // Sets a custom keepalive timeout, the timeout for keepalive ping requests.
         private long keepAliveTimeout = DEFAULT_KEEPALIVE_TIMEOUT;
         // Specify the most aggressive keep-alive time clients are permitted to configure.
-        private long permitKeepAliveTimeout = DEFAULT_PERMIT_KEEPALIVE_TIMEOUT;
-        // Sets whether to allow clients to send keep-alive HTTP/2 PINGs even if there are no outstanding RPCs on the connection. Defaults to {@code false}.
-        private boolean permitKeepAliveWithoutCalls = DEFAULT_PERMIT_KEEPALIVE_WITHOUT_CALLS;
+        private long permitKeepAliveTime = DEFAULT_PERMIT_KEEPALIVE_TIME;
 
         // Sets a custom max connection idle time, connection being idle for longer than which will be gracefully terminated.
         private long maxConnectionIdle = DEFAULT_MAX_CONNECTION_IDLE;
-        // Sets a custom max connection age, connection lasting longer than which will be gracefully terminated.
-        private long maxConnectionAge = DEFAULT_MAX_CONNECTION_AGE;
-        // Sets a custom grace time for the graceful connection termination. Once the max connection age is reached, RPCs have the grace time to complete.
-        private long maxConnectionAgeGrace = DEFAULT_MAX_CONNECTION_AGE_GRACE;
         // The maximum number of concurrent calls permitted for each incoming connection. Defaults to no limit.
         private int maxConcurrentCallsPerConnection = DEFAULT_MAX_CONCURRENT_CALLS_PER_CONNECTION;
 
@@ -172,57 +178,61 @@ public class ServerOption {
         // Sets the HTTP/2 flow control window.
         private int flowControlWindow = DEFAULT_FLOW_CONTROL_WINDOW;
 
+        private int receiveBufferSize = DEFAULT_RECEIVE_BUFFER_SIZE;
+
         public ServerOption build() {
-            final ServerOption serverOption = new ServerOption(keepAliveTime, keepAliveTimeout, permitKeepAliveTimeout, permitKeepAliveWithoutCalls, maxConnectionIdle, maxConnectionAge, maxConnectionAgeGrace, maxConcurrentCallsPerConnection, maxInboundMessageSize, maxHeaderListSize, handshakeTimeout, flowControlWindow);
+            final ServerOption serverOption = new ServerOption(keepAliveTime, keepAliveTimeout, permitKeepAliveTime, maxConnectionIdle, maxConcurrentCallsPerConnection, maxInboundMessageSize, maxHeaderListSize, handshakeTimeout, flowControlWindow, receiveBufferSize);
             return serverOption;
         }
 
         public void setKeepAliveTime(long keepAliveTime) {
+            Assert.isTrue(keepAliveTime > 0, "keepAliveTime " + keepAliveTime + " must be positive");
             this.keepAliveTime = keepAliveTime;
         }
 
         public void setKeepAliveTimeout(long keepAliveTimeout) {
+            Assert.isTrue(keepAliveTimeout > 0, "keepAliveTimeout " + keepAliveTimeout + " must be positive");
             this.keepAliveTimeout = keepAliveTimeout;
         }
 
-        public void setPermitKeepAliveTimeout(long permitKeepAliveTimeout) {
-            this.permitKeepAliveTimeout = permitKeepAliveTimeout;
-        }
-
-        public void setPermitKeepAliveWithoutCalls(boolean permitKeepAliveWithoutCalls) {
-            this.permitKeepAliveWithoutCalls = permitKeepAliveWithoutCalls;
+        public void setPermitKeepAliveTime(long permitKeepAliveTime) {
+            Assert.isTrue(permitKeepAliveTime >= 0, "permitKeepAliveTime " + permitKeepAliveTime + " must be non-negative");
+            this.permitKeepAliveTime = permitKeepAliveTime;
         }
 
         public void setMaxConnectionIdle(long maxConnectionIdle) {
+            Assert.isTrue(maxConnectionIdle > 0, "maxConnectionIdle " + maxConnectionIdle + " must be positive");
             this.maxConnectionIdle = maxConnectionIdle;
         }
 
-        public void setMaxConnectionAge(long maxConnectionAge) {
-            this.maxConnectionAge = maxConnectionAge;
-        }
-
-        public void setMaxConnectionAgeGrace(long maxConnectionAgeGrace) {
-            this.maxConnectionAgeGrace = maxConnectionAgeGrace;
-        }
-
         public void setMaxConcurrentCallsPerConnection(int maxConcurrentCallsPerConnection) {
+            Assert.isTrue(maxConcurrentCallsPerConnection > 0, "maxConcurrentCallsPerConnection " + maxConcurrentCallsPerConnection + " must be positive");
             this.maxConcurrentCallsPerConnection = maxConcurrentCallsPerConnection;
         }
 
         public void setMaxInboundMessageSize(int maxInboundMessageSize) {
+            Assert.isTrue(maxInboundMessageSize > 0, "maxInboundMessageSize " + maxInboundMessageSize + " must be positive");
             this.maxInboundMessageSize = maxInboundMessageSize;
         }
 
         public void setMaxHeaderListSize(int maxHeaderListSize) {
+            Assert.isTrue(maxHeaderListSize > 0, "maxHeaderListSize " + maxHeaderListSize + " must be positive");
             this.maxHeaderListSize = maxHeaderListSize;
         }
 
         public void setHandshakeTimeout(long handshakeTimeout) {
+            Assert.isTrue(handshakeTimeout > 0, "handshakeTimeout " + handshakeTimeout + " must be positive");
             this.handshakeTimeout = handshakeTimeout;
         }
 
         public void setFlowControlWindow(int flowControlWindow) {
+            Assert.isTrue(flowControlWindow > 0, "flowControlWindow " + flowControlWindow + " must be positive");
             this.flowControlWindow = flowControlWindow;
+        }
+
+        public void setReceiveBufferSize(int receiveBufferSize) {
+            Assert.isTrue(receiveBufferSize > 0, "receiveBufferSize " + receiveBufferSize + " must be positive");
+            this.receiveBufferSize = receiveBufferSize;
         }
     }
 }
