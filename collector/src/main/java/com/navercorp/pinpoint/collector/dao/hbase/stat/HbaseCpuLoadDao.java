@@ -24,11 +24,13 @@ import com.navercorp.pinpoint.common.server.bo.serializer.stat.AgentStatHbaseOpe
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.CpuLoadSerializer;
 import com.navercorp.pinpoint.common.server.bo.stat.AgentStatType;
 import com.navercorp.pinpoint.common.server.bo.stat.CpuLoadBo;
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -37,6 +39,7 @@ import java.util.List;
  * @author HyunGil Jeong
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseCpuLoadDao implements AgentStatDaoV2<CpuLoadBo> {
 
     @Autowired

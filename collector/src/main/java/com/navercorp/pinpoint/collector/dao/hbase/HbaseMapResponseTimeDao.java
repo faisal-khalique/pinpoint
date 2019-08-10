@@ -28,7 +28,7 @@ import com.navercorp.pinpoint.common.server.util.AcceptedTimeService;
 import com.navercorp.pinpoint.common.trace.ServiceType;
 import com.navercorp.pinpoint.common.util.ApplicationMapStatisticsUtils;
 import com.navercorp.pinpoint.common.util.TimeSlot;
-
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Increment;
@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -50,6 +51,7 @@ import java.util.Map;
  * @author HyunGil Jeong
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseMapResponseTimeDao extends AbstractHbaseDao implements MapResponseTimeDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

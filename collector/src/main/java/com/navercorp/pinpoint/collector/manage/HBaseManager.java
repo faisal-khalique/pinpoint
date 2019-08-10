@@ -27,7 +27,7 @@ import java.util.Map;
  */
 public class HBaseManager extends AbstractCollectorManager implements HBaseManagerMBean {
 
-    @Autowired
+    @Autowired(required = false)
     private HBaseAsyncOperation hBaseAsyncOperation;
 
     @Override

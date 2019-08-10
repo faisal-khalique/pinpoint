@@ -23,6 +23,7 @@ import com.navercorp.pinpoint.common.hbase.HbaseTableConstatns;
 import com.navercorp.pinpoint.common.server.bo.AgentInfoBo;
 import com.navercorp.pinpoint.common.server.util.RowKeyUtils;
 import com.navercorp.pinpoint.common.util.TimeUtils;
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
@@ -30,12 +31,14 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 /**
  * @author emeroad
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseAgentInfoDao extends AbstractHbaseDao implements AgentInfoDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

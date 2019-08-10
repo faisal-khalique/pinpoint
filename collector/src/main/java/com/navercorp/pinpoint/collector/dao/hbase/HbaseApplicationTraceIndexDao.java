@@ -25,12 +25,13 @@ import com.navercorp.pinpoint.common.hbase.HbaseTableConstatns;
 import com.navercorp.pinpoint.common.server.bo.SpanBo;
 import com.navercorp.pinpoint.common.server.util.AcceptedTimeService;
 import com.navercorp.pinpoint.common.server.util.SpanUtils;
-
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 import com.sematext.hbase.wd.AbstractRowKeyDistributor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -40,6 +41,7 @@ import org.springframework.stereotype.Repository;
  * @author emeroad
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseApplicationTraceIndexDao extends AbstractHbaseDao implements ApplicationTraceIndexDao {
 
     @Autowired

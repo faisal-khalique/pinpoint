@@ -26,8 +26,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * @author Woonduk Kang(emeroad)
+ * Faisal: temporary commented out to disable HBase
  */
-@Component
+//@Component
 public class TraceRowKeyEncoderV2 implements RowKeyEncoder<TransactionId> {
 
     public static final int AGENT_NAME_MAX_LEN = PinpointConstants.AGENT_NAME_MAX_LEN;

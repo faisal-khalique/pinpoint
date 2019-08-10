@@ -11,6 +11,7 @@ import com.navercorp.pinpoint.common.server.bo.serializer.RowKeyEncoder;
 import com.navercorp.pinpoint.common.server.bo.serializer.trace.v2.SpanChunkSerializerV2;
 import com.navercorp.pinpoint.common.server.bo.serializer.trace.v2.SpanSerializerV2;
 import com.navercorp.pinpoint.common.util.TransactionId;
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hbase.TableName;
@@ -19,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,6 +29,7 @@ import java.util.List;
  * @author Woonduk Kang(emeroad)
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseTraceDaoV2 implements TraceDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

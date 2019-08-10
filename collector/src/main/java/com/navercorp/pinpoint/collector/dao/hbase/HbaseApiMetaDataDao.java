@@ -22,7 +22,7 @@ import com.navercorp.pinpoint.common.buffer.Buffer;
 import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.server.bo.ApiMetaDataBo;
-
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Put;
@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Repository;
  * @author minwoo.jung
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseApiMetaDataDao extends AbstractHbaseDao implements ApiMetaDataDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

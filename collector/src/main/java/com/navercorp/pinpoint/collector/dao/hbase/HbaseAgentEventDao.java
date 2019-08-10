@@ -26,18 +26,21 @@ import com.navercorp.pinpoint.common.server.util.AgentEventType;
 import com.navercorp.pinpoint.common.server.util.RowKeyUtils;
 import com.navercorp.pinpoint.common.util.BytesUtils;
 import com.navercorp.pinpoint.common.util.TimeUtils;
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 /**
  * @author HyunGil Jeong
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseAgentEventDao extends AbstractHbaseDao implements AgentEventDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

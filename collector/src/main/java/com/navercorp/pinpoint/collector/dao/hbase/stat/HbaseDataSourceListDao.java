@@ -27,6 +27,7 @@ import com.navercorp.pinpoint.common.server.bo.stat.AgentStatType;
 import com.navercorp.pinpoint.common.server.bo.stat.DataSourceBo;
 import com.navercorp.pinpoint.common.server.bo.stat.DataSourceListBo;
 import com.navercorp.pinpoint.common.util.CollectionUtils;
+import com.navercorp.pinpoint.system.annotations.UseHBaseForPersistence;
 
 import org.apache.commons.collections.map.MultiKeyMap;
 import org.apache.hadoop.hbase.TableName;
@@ -34,6 +35,7 @@ import org.apache.hadoop.hbase.client.Put;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ import java.util.List;
  * @author Taejin Koo
  */
 @Repository
+@Conditional({UseHBaseForPersistence.class})
 public class HbaseDataSourceListDao implements AgentStatDaoV2<DataSourceListBo> {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());

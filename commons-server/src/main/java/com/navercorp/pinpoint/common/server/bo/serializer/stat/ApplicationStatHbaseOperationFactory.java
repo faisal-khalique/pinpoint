@@ -38,8 +38,9 @@ import java.util.TreeMap;
 
 /**
  * @author Minwoo Jung
+ * Faisal: temporary commented out to disable HBase
  */
-@Component
+//@Component
 public class ApplicationStatHbaseOperationFactory {
 
     private final ApplicationStatRowKeyEncoder rowKeyEncoder;
