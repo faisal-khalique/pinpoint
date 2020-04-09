@@ -17,10 +17,11 @@
 package com.navercorp.pinpoint.collector.dao.hbase;
 
 import com.navercorp.pinpoint.collector.dao.AgentLifeCycleDao;
-import com.navercorp.pinpoint.collector.dao.hbase.mapper.AgentLifeCycleValueMapper;
 import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
 import com.navercorp.pinpoint.common.hbase.HbaseTableConstatns;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
+import com.navercorp.pinpoint.common.hbase.ValueMapper;
 import com.navercorp.pinpoint.common.server.bo.AgentLifeCycleBo;
 import com.navercorp.pinpoint.common.util.BytesUtils;
 import com.navercorp.pinpoint.common.util.TimeUtils;
@@ -29,28 +30,33 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
+
+import java.util.Objects;
 
 /**
  * @author HyunGil Jeong
  */
 @Repository
-public class HbaseAgentLifeCycleDao extends AbstractHbaseDao implements AgentLifeCycleDao {
+public class HbaseAgentLifeCycleDao implements AgentLifeCycleDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private HbaseOperations2 hbaseTemplate;
+    private final HbaseOperations2 hbaseTemplate;
 
-    @Autowired
-    private AgentLifeCycleValueMapper valueMapper;
+    private final TableDescriptor<HbaseColumnFamily.AgentLifeCycleStatus> descriptor;
+
+    private final ValueMapper<AgentLifeCycleBo> valueMapper;
+
+    public HbaseAgentLifeCycleDao(HbaseOperations2 hbaseTemplate, TableDescriptor<HbaseColumnFamily.AgentLifeCycleStatus> descriptor, ValueMapper<AgentLifeCycleBo> valueMapper) {
+        this.hbaseTemplate = Objects.requireNonNull(hbaseTemplate, "hbaseTemplate");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.valueMapper = Objects.requireNonNull(valueMapper, "valueMapper");
+    }
 
     @Override
     public void insert(AgentLifeCycleBo agentLifeCycleBo) {
-        if (agentLifeCycleBo == null) {
-            throw new NullPointerException("agentLifeCycleBo must not be null");
-        }
+        Objects.requireNonNull(agentLifeCycleBo, "agentLifeCycleBo");
 
         if (logger.isDebugEnabled()) {
             logger.debug("insert agent life cycle. {}", agentLifeCycleBo.toString());
@@ -62,8 +68,8 @@ public class HbaseAgentLifeCycleDao extends AbstractHbaseDao implements AgentLif
 
         byte[] rowKey = createRowKey(agentId, startTimestamp, eventIdentifier);
 
-        TableName agentLifeCycleTableName = getTableName();
-        this.hbaseTemplate.put(agentLifeCycleTableName, rowKey, getColumnFamilyName(), getColumnFamily().QUALIFIER_STATES,
+        TableName agentLifeCycleTableName = descriptor.getTableName();
+        this.hbaseTemplate.put(agentLifeCycleTableName, rowKey, descriptor.getColumnFamilyName(), descriptor.getColumnFamily().QUALIFIER_STATES,
                 agentLifeCycleBo, this.valueMapper);
     }
 
@@ -82,8 +88,4 @@ public class HbaseAgentLifeCycleDao extends AbstractHbaseDao implements AgentLif
         return rowKey;
     }
 
-    @Override
-    public HbaseColumnFamily.AgentLifeCycleStatus getColumnFamily() {
-        return HbaseColumnFamily.AGENT_LIFECYCLE_STATUS;
-    }
 }

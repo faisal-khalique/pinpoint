@@ -16,13 +16,16 @@
 
 package com.navercorp.pinpoint.test.plugin.shared;
 
+import com.navercorp.pinpoint.bootstrap.AgentParameter;
+import com.navercorp.pinpoint.bootstrap.ArgsParser;
 import com.navercorp.pinpoint.common.Charsets;
 import com.navercorp.pinpoint.common.util.Assert;
-import com.navercorp.pinpoint.common.util.StringUtils;
+import com.navercorp.pinpoint.common.util.CollectionUtils;
 import com.navercorp.pinpoint.common.util.SystemProperty;
 import com.navercorp.pinpoint.test.plugin.PinpointPluginTestContext;
 import com.navercorp.pinpoint.test.plugin.PinpointPluginTestInstance;
 import com.navercorp.pinpoint.test.plugin.ProcessManager;
+import com.navercorp.pinpoint.test.plugin.util.StringUtils;
 import org.eclipse.aether.artifact.Artifact;
 
 import java.io.File;
@@ -40,6 +43,7 @@ import java.util.TimerTask;
  * @author Taejin Koo
  */
 public class SharedProcessManager implements ProcessManager {
+    public static final String PATH_SEPARATOR = File.pathSeparator;
 
     private final PinpointPluginTestContext context;
     private final Map<String, List<Artifact>> testRepository = new LinkedHashMap<String, List<Artifact>>();
@@ -47,7 +51,7 @@ public class SharedProcessManager implements ProcessManager {
     private Process process = null;
 
     public SharedProcessManager(PinpointPluginTestContext context) {
-        this.context = Assert.requireNonNull(context, "context must not be null");
+        this.context = Assert.requireNonNull(context, "context");
     }
 
     @Override
@@ -142,15 +146,18 @@ public class SharedProcessManager implements ProcessManager {
         list.add("-Xmx1024m");
         list.add("-XX:MaxPermSize=512m");
 
+        String classPath = join(context.getRequiredLibraries());
         list.add("-cp");
-        list.add(getClassPathAsString(context.getRequiredLibraries()));
+        list.add(classPath);
 
         list.add(getAgent());
 
         list.add("-Dpinpoint.agentId=build.test.0");
         list.add("-Dpinpoint.applicationName=test");
+        list.add("-Djava.net.preferIPv4Addresses=true");
 
-        list.add("-D" + SharedPluginTestConstants.MAVEN_DEPENDENCY_RESOLVER_CLASS_PATHS + "=" + getClassPathAsString(context.getMavenDependencyLibraries()));
+        final String mavenDependencyResolverClassPaths = join(context.getMavenDependencyLibraries());
+        list.add("-D" + SharedPluginTestConstants.MAVEN_DEPENDENCY_RESOLVER_CLASS_PATHS + "=" + mavenDependencyResolverClassPaths);
         list.add("-D" + SharedPluginTestConstants.TEST_LOCATION + "=" + context.getTestClassLocation());
         list.add("-D" + SharedPluginTestConstants.TEST_CLAZZ_NAME +"=" + context.getTestClass().getName());
 
@@ -164,8 +171,13 @@ public class SharedProcessManager implements ProcessManager {
             list.addAll(getDebugOptions());
         }
 
+        if (context.getProfile() != null) {
+            list.add("-Dpinpoint.profiler.profiles.active=" + context.getProfile());
+        }
+
         if (context.getConfigFile() != null) {
             list.add("-Dpinpoint.config=" + context.getConfigFile());
+            list.add("-Dpinpoint.config.load.mode=simple");
         }
 
         for (String arg : getVmArgs()) {
@@ -188,6 +200,10 @@ public class SharedProcessManager implements ProcessManager {
         return list.toArray(new String[0]);
     }
 
+    private String join(List<String> mavenDependencyLibraries) {
+        return StringUtils.join(mavenDependencyLibraries, PATH_SEPARATOR);
+    }
+
     private static final String DEFAULT_ENCODING = Charsets.UTF_8_NAME;
 
     private List<String> getVmArgs() {
@@ -199,13 +215,25 @@ public class SharedProcessManager implements ProcessManager {
     }
 
     private String getAgent() {
-        return "-javaagent:" + context.getAgentJar() + "=AGENT_TYPE=PLUGIN_TEST";
+        return "-javaagent:" + context.getAgentJar() + "=" + buildAgentArguments();
+    }
+
+    private String buildAgentArguments() {
+        final Map<String, String> agentArgumentMap = new LinkedHashMap<String, String>();
+        agentArgumentMap.put("AGENT_TYPE", "PLUGIN_TEST");
+
+        final List<String> importPluginIds = context.getImportPluginIds();
+        if (CollectionUtils.hasLength(importPluginIds)) {
+            String enablePluginIds = com.navercorp.pinpoint.test.plugin.util.StringUtils.join(importPluginIds, ArtifactIdUtils.ARTIFACT_SEPARATOR);
+            agentArgumentMap.put(AgentParameter.IMPORT_PLUGIN, enablePluginIds);
+        }
+        return com.navercorp.pinpoint.test.plugin.util.StringUtils.join(agentArgumentMap, "=", ArgsParser.DELIMITER);
     }
 
     private String addTest(String testId, List<Artifact> artifactList) {
         StringBuilder mavenDependencyInfo = new StringBuilder();
         mavenDependencyInfo.append(testId);
-        mavenDependencyInfo.append("=");
+        mavenDependencyInfo.append('=');
 
         for (Artifact artifact : artifactList) {
             String str = ArtifactIdUtils.artifactToString(artifact);
@@ -220,22 +248,6 @@ public class SharedProcessManager implements ProcessManager {
 
     public String getMainClass() {
         return SharedPinpointPluginTest.class.getName();
-    }
-
-    private String getClassPathAsString(List<String> classPaths) {
-        StringBuilder classPath = new StringBuilder();
-        boolean first = true;
-
-        for (String lib : classPaths) {
-            if (first) {
-                first = false;
-            } else {
-                classPath.append(File.pathSeparatorChar);
-            }
-
-            classPath.append(lib);
-        }
-        return classPath.toString();
     }
 
 }

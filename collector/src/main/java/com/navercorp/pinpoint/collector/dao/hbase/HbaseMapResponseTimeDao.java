@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,11 +24,13 @@ import com.navercorp.pinpoint.collector.dao.hbase.statistics.ResponseColumnName;
 import com.navercorp.pinpoint.collector.dao.hbase.statistics.RowKey;
 import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
 import com.navercorp.pinpoint.common.server.util.AcceptedTimeService;
 import com.navercorp.pinpoint.common.trace.ServiceType;
-import com.navercorp.pinpoint.common.util.ApplicationMapStatisticsUtils;
-import com.navercorp.pinpoint.common.util.TimeSlot;
+import com.navercorp.pinpoint.common.profiler.util.ApplicationMapStatisticsUtils;
+import com.navercorp.pinpoint.common.server.util.TimeSlot;
 
+import com.navercorp.pinpoint.common.util.Assert;
 import com.sematext.hbase.wd.RowKeyDistributorByHashPrefix;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Increment;
@@ -40,6 +42,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Save response time data of WAS
@@ -50,45 +53,52 @@ import java.util.Map;
  * @author HyunGil Jeong
  */
 @Repository
-public class HbaseMapResponseTimeDao extends AbstractHbaseDao implements MapResponseTimeDao {
+public class HbaseMapResponseTimeDao implements MapResponseTimeDao {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private HbaseOperations2 hbaseTemplate;
+    private final HbaseOperations2 hbaseTemplate;
 
-    @Autowired
-    private AcceptedTimeService acceptedTimeService;
+    private final RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
 
-    @Autowired
-    private TimeSlot timeSlot;
+    private final AcceptedTimeService acceptedTimeService;
 
-    @Autowired
-    @Qualifier("selfBulkIncrementer")
-    private BulkIncrementer bulkIncrementer;
+    private final TimeSlot timeSlot;
 
-    @Autowired
-    @Qualifier("statisticsSelfRowKeyDistributor")
-    private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+    private final BulkIncrementer bulkIncrementer;
 
     private final boolean useBulk;
 
-    public HbaseMapResponseTimeDao() {
-        this(true);
+    private final TableDescriptor<HbaseColumnFamily.SelfStatMap> descriptor;
+
+
+    @Autowired
+    public HbaseMapResponseTimeDao(HbaseOperations2 hbaseTemplate,
+                                   TableDescriptor<HbaseColumnFamily.SelfStatMap> descriptor,
+                                   @Qualifier("statisticsSelfRowKeyDistributor") RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix,
+                                   AcceptedTimeService acceptedTimeService, TimeSlot timeSlot,
+                                   @Qualifier("selfBulkIncrementer") BulkIncrementer bulkIncrementer) {
+        this(hbaseTemplate, descriptor, rowKeyDistributorByHashPrefix, acceptedTimeService, timeSlot, bulkIncrementer, true);
     }
 
-    public HbaseMapResponseTimeDao(boolean useBulk) {
+    public HbaseMapResponseTimeDao(HbaseOperations2 hbaseTemplate,
+                                   TableDescriptor<HbaseColumnFamily.SelfStatMap> descriptor,
+                                   RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix,
+                                   AcceptedTimeService acceptedTimeService, TimeSlot timeSlot,
+                                   BulkIncrementer bulkIncrementer, boolean useBulk) {
+        this.hbaseTemplate = Objects.requireNonNull(hbaseTemplate, "hbaseTemplate");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.rowKeyDistributorByHashPrefix = Objects.requireNonNull(rowKeyDistributorByHashPrefix, "rowKeyDistributorByHashPrefix");
+        this.acceptedTimeService = Objects.requireNonNull(acceptedTimeService, "acceptedTimeService");
+        this.timeSlot = Objects.requireNonNull(timeSlot, "timeSlot");
+        this.bulkIncrementer = Objects.requireNonNull(bulkIncrementer, "bulkIncrementer");
         this.useBulk = useBulk;
     }
 
     @Override
     public void received(String applicationName, ServiceType applicationServiceType, String agentId, int elapsed, boolean isError) {
-        if (applicationName == null) {
-            throw new NullPointerException("applicationName must not be null");
-        }
-        if (agentId == null) {
-            throw new NullPointerException("agentId must not be null");
-        }
+        Objects.requireNonNull(applicationName, "applicationName");
+        Objects.requireNonNull(agentId, "agentId");
 
         if (logger.isDebugEnabled()) {
             logger.debug("[Received] {} ({})[{}]", applicationName, applicationServiceType, agentId);
@@ -102,7 +112,7 @@ public class HbaseMapResponseTimeDao extends AbstractHbaseDao implements MapResp
         final short slotNumber = ApplicationMapStatisticsUtils.getSlotNumber(applicationServiceType, elapsed, isError);
         final ColumnName selfColumnName = new ResponseColumnName(agentId, slotNumber);
         if (useBulk) {
-            TableName mapStatisticsSelfTableName = getTableName();
+            TableName mapStatisticsSelfTableName = descriptor.getTableName();
             bulkIncrementer.increment(mapStatisticsSelfTableName, selfRowKey, selfColumnName);
         } else {
             final byte[] rowKey = getDistributedKey(selfRowKey.getRowKey());
@@ -114,13 +124,13 @@ public class HbaseMapResponseTimeDao extends AbstractHbaseDao implements MapResp
 
     private void increment(byte[] rowKey, byte[] columnName, long increment) {
         if (rowKey == null) {
-            throw new NullPointerException("rowKey must not be null");
+            throw new NullPointerException("rowKey");
         }
         if (columnName == null) {
-            throw new NullPointerException("columnName must not be null");
+            throw new NullPointerException("columnName");
         }
-        TableName mapStatisticsSelfTableName = getTableName();
-        hbaseTemplate.incrementColumnValue(mapStatisticsSelfTableName, rowKey, getColumnFamilyName(), columnName, increment);
+        TableName mapStatisticsSelfTableName = descriptor.getTableName();
+        hbaseTemplate.incrementColumnValue(mapStatisticsSelfTableName, rowKey, descriptor.getColumnFamilyName(), columnName, increment);
     }
 
 
@@ -143,11 +153,6 @@ public class HbaseMapResponseTimeDao extends AbstractHbaseDao implements MapResp
 
     private byte[] getDistributedKey(byte[] rowKey) {
         return rowKeyDistributorByHashPrefix.getDistributedKey(rowKey);
-    }
-
-    @Override
-    public HbaseColumnFamily getColumnFamily() {
-        return HbaseColumnFamily.MAP_STATISTICS_SELF_VER2_COUNTER;
     }
 
 }

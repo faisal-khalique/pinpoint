@@ -25,8 +25,9 @@ import com.navercorp.pinpoint.thrift.dto.TResult;
 import com.navercorp.pinpoint.thrift.dto.TStringMetaData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.Objects;
 
 /**
  * @author emeroad
@@ -36,8 +37,11 @@ public class ThriftStringMetaDataHandler implements RequestResponseHandler {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Autowired
-    private StringMetaDataService stringMetaDataService;
+    private final StringMetaDataService stringMetaDataService;
+
+    public ThriftStringMetaDataHandler(StringMetaDataService stringMetaDataService) {
+        this.stringMetaDataService = Objects.requireNonNull(stringMetaDataService, "stringMetaDataService");
+    }
 
     @Override
     public void handleRequest(ServerRequest serverRequest, ServerResponse serverResponse) {
@@ -51,7 +55,6 @@ public class ThriftStringMetaDataHandler implements RequestResponseHandler {
             serverResponse.write(result);
         } else {
             logger.warn("invalid serverRequest:{}", serverRequest);
-            return;
         }
     }
 
@@ -61,7 +64,7 @@ public class ThriftStringMetaDataHandler implements RequestResponseHandler {
             stringMetaDataBo.setStringValue(stringMetaData.getStringValue());
             stringMetaDataService.insert(stringMetaDataBo);
         } catch (Exception e) {
-            logger.warn("{} handler error. Caused:{}", this.getClass(), e.getMessage(), e);
+            logger.warn("Failed to handle stringMetaData={}, Caused:{}", stringMetaData, e.getMessage(), e);
             final TResult result = new TResult(false);
             result.setMessage(e.getMessage());
             return result;

@@ -37,6 +37,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author emeroad
@@ -47,11 +48,14 @@ public class ApiMetaDataMapper implements RowMapper<List<ApiMetaDataBo>> {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    @Qualifier("metadataRowKeyDistributor")
-    private RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
+    private final RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix;
     
     private final static String API_METADATA_CF_API_QUALI_SIGNATURE  = Bytes.toString(HbaseColumnFamily.API_METADATA_API.QUALIFIER_SIGNATURE);
+
+    public ApiMetaDataMapper(@Qualifier("metadataRowKeyDistributor") RowKeyDistributorByHashPrefix rowKeyDistributorByHashPrefix) {
+        this.rowKeyDistributorByHashPrefix = Objects.requireNonNull(rowKeyDistributorByHashPrefix, "rowKeyDistributorByHashPrefix");
+    }
+
 
     @Override
     public List<ApiMetaDataBo> mapRow(Result result, int rowNum) throws Exception {
@@ -65,15 +69,9 @@ public class ApiMetaDataMapper implements RowMapper<List<ApiMetaDataBo>> {
             ApiMetaDataBo apiMetaDataBo = new ApiMetaDataBo();
             apiMetaDataBo.readRowKey(rowKey);
 
-            byte[] qualifier = CellUtil.cloneQualifier(cell);
-            byte[] value = null;
-            
-            if (API_METADATA_CF_API_QUALI_SIGNATURE.equals(Bytes.toString(qualifier))) {
-                value = CellUtil.cloneValue(cell);
-            } else {
-                value = qualifier;
-            }
-            
+            final byte[] qualifier = CellUtil.cloneQualifier(cell);
+            final byte[] value = getValue(cell, qualifier);
+
             Buffer buffer = new FixedBuffer(value);
             String apiInfo = buffer.readPrefixedString();
             int lineNumber = buffer.readInt();
@@ -90,6 +88,14 @@ public class ApiMetaDataMapper implements RowMapper<List<ApiMetaDataBo>> {
             }
         }
         return apiMetaDataList;
+    }
+
+    private byte[] getValue(Cell cell, byte[] qualifier) {
+        if (API_METADATA_CF_API_QUALI_SIGNATURE.equals(Bytes.toString(qualifier))) {
+            return CellUtil.cloneValue(cell);
+        } else {
+            return qualifier;
+        }
     }
 
     private byte[] getOriginalKey(byte[] rowKey) {

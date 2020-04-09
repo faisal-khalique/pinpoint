@@ -30,6 +30,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * @author emeroad
  */
@@ -38,8 +40,11 @@ public class ThriftApiMetaDataHandler implements RequestResponseHandler {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Autowired
-    private ApiMetaDataService apiMetaDataService;
+    private final ApiMetaDataService apiMetaDataService;
+
+    public ThriftApiMetaDataHandler(ApiMetaDataService apiMetaDataService) {
+        this.apiMetaDataService = Objects.requireNonNull(apiMetaDataService, "apiMetaDataService");
+    }
 
     @Override
     public void handleRequest(ServerRequest serverRequest, ServerResponse serverResponse) {
@@ -70,7 +75,7 @@ public class ThriftApiMetaDataHandler implements RequestResponseHandler {
 
             this.apiMetaDataService.insert(apiMetaDataBo);
         } catch (Exception e) {
-            logger.warn("{} handler error. Caused:{}", this.getClass(), e.getMessage(), e);
+            logger.warn("Failed to handle apiMetaData={}, Caused:{}", apiMetaData, e.getMessage(), e);
             final TResult result = new TResult(false);
             result.setMessage(e.getMessage());
             return result;

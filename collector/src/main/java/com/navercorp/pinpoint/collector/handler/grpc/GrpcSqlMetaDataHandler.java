@@ -19,7 +19,6 @@ package com.navercorp.pinpoint.collector.handler.grpc;
 import com.navercorp.pinpoint.collector.handler.RequestResponseHandler;
 import com.navercorp.pinpoint.collector.service.SqlMetaDataService;
 import com.navercorp.pinpoint.common.server.bo.SqlMetaDataBo;
-import com.navercorp.pinpoint.grpc.AgentHeaderFactory;
 import com.navercorp.pinpoint.grpc.Header;
 import com.navercorp.pinpoint.grpc.MessageFormatUtils;
 import com.navercorp.pinpoint.grpc.server.ServerContext;
@@ -33,6 +32,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * @author emeroad
  */
@@ -41,11 +42,12 @@ public class GrpcSqlMetaDataHandler implements RequestResponseHandler {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final boolean isDebug = logger.isDebugEnabled();
 
-    @Autowired
-    private SqlMetaDataService sqlMetaDataService;
+    private final SqlMetaDataService sqlMetaDataService;
 
-    public GrpcSqlMetaDataHandler() {
+    public GrpcSqlMetaDataHandler(SqlMetaDataService sqlMetaDataService) {
+        this.sqlMetaDataService = Objects.requireNonNull(sqlMetaDataService, "sqlMetaDataService");
     }
+
 
     @Override
     public void handleRequest(ServerRequest serverRequest, ServerResponse serverResponse) {

@@ -18,6 +18,7 @@ package com.navercorp.pinpoint.web.dao.hbase;
 
 import com.navercorp.pinpoint.common.hbase.HbaseColumnFamily;
 import com.navercorp.pinpoint.common.hbase.HbaseOperations2;
+import com.navercorp.pinpoint.common.hbase.TableDescriptor;
 import com.navercorp.pinpoint.common.server.bo.codec.stat.ApplicationStatDecoder;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.AgentStatUtils;
 import com.navercorp.pinpoint.common.server.bo.serializer.stat.ApplicationStatHbaseOperationFactory;
@@ -33,41 +34,44 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Scan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Minwoo Jung
  */
 @Repository
-public class HbaseApplicationStatDaoOperations extends AbstractHbaseDao {
+public class HbaseApplicationStatDaoOperations {
 
     private static final int APPLICATION_STAT_NUM_PARTITIONS = 32;
     private static final int MAX_SCAN_CACHE_SIZE = 256;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private HbaseOperations2 hbaseOperations2;
+    private final HbaseOperations2 hbaseOperations2;
 
-    @Autowired
-    private ApplicationStatHbaseOperationFactory operationFactory;
+    private final ApplicationStatHbaseOperationFactory operationFactory;
+
+    private final TableDescriptor<HbaseColumnFamily.ApplicationStatStatistics> descriptor;
+
+    public HbaseApplicationStatDaoOperations(HbaseOperations2 hbaseOperations2,
+                                             TableDescriptor<HbaseColumnFamily.ApplicationStatStatistics> descriptor,
+                                             ApplicationStatHbaseOperationFactory operationFactory) {
+        this.hbaseOperations2 = Objects.requireNonNull(hbaseOperations2, "hbaseOperations2");
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.operationFactory = Objects.requireNonNull(operationFactory, "operationFactory");
+    }
 
     List<AggregationStatData> getSampledStatList(StatType statType, SampledApplicationStatResultExtractor resultExtractor, String applicationId, Range range) {
-        if (applicationId == null) {
-            throw new NullPointerException("applicationId must not be null");
-        }
-        if (range == null) {
-            throw new NullPointerException("range must not be null");
-        }
-        if (resultExtractor == null) {
-            throw new NullPointerException("resultExtractor must not be null");
-        }
+        Objects.requireNonNull(applicationId, "applicationId");
+        Objects.requireNonNull(range, "range");
+        Objects.requireNonNull(resultExtractor, "resultExtractor");
+
         Scan scan = this.createScan(statType, applicationId, range);
 
-        TableName applicationStatAggreTableName = getTableName();
+        TableName applicationStatAggreTableName = descriptor.getTableName();
         return hbaseOperations2.findParallel(applicationStatAggreTableName, scan, this.operationFactory.getRowKeyDistributor(), resultExtractor, APPLICATION_STAT_NUM_PARTITIONS);
     }
 
@@ -78,7 +82,7 @@ public class HbaseApplicationStatDaoOperations extends AbstractHbaseDao {
 
     private Scan createScan(StatType statType, String applicationId, Range range) {
         long scanRange = range.getTo() - range.getFrom();
-        long expectedNumRows = ((scanRange - 1) / getColumnFamily().TIMESPAN_MS) + 1;
+        long expectedNumRows = ((scanRange - 1) / descriptor.getColumnFamily().TIMESPAN_MS) + 1;
         if (range.getFrom() != AgentStatUtils.getBaseTimestamp(range.getFrom())) {
             expectedNumRows++;
         }
@@ -94,13 +98,8 @@ public class HbaseApplicationStatDaoOperations extends AbstractHbaseDao {
         Scan scan = this.operationFactory.createScan(applicationId, statType, range.getFrom(), range.getTo());
         scan.setCaching(scanCacheSize);
         scan.setId("ApplicationStat_" + statType);
-        scan.addFamily(getColumnFamilyName());
+        scan.addFamily(descriptor.getColumnFamilyName());
         return scan;
-    }
-
-    @Override
-    public HbaseColumnFamily.ApplicationStatStatistics getColumnFamily() {
-        return HbaseColumnFamily.APPLICATION_STAT_STATISTICS;
     }
 
 }

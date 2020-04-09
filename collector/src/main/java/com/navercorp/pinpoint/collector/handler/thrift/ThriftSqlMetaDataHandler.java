@@ -28,6 +28,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * @author emeroad
  */
@@ -35,17 +37,18 @@ import org.springframework.stereotype.Service;
 public class ThriftSqlMetaDataHandler implements RequestResponseHandler {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Autowired
-    private SqlMetaDataService sqlMetaDataService;
+    private final SqlMetaDataService sqlMetaDataService;
 
-    public ThriftSqlMetaDataHandler() {
+    public ThriftSqlMetaDataHandler(SqlMetaDataService sqlMetaDataService) {
+        this.sqlMetaDataService = Objects.requireNonNull(sqlMetaDataService, "sqlMetaDataService");
     }
+
 
     @Override
     public void handleRequest(ServerRequest serverRequest, ServerResponse serverResponse) {
         final Object data = serverRequest.getData();
         if (logger.isDebugEnabled()) {
-            logger.debug("Handle request data=={}", data);
+            logger.debug("Handle request data={}", data);
         }
 
         if (data instanceof TSqlMetaData) {
@@ -62,7 +65,7 @@ public class ThriftSqlMetaDataHandler implements RequestResponseHandler {
             sqlMetaDataBo.setSql(sqlMetaData.getSql());
             sqlMetaDataService.insert(sqlMetaDataBo);
         } catch (Exception e) {
-            logger.warn("{} handler error. Caused:{}", this.getClass(), e.getMessage(), e);
+            logger.warn("Failed to handle SqlMetaData={}, Caused:{}", sqlMetaData, e.getMessage(), e);
             final TResult result = new TResult(false);
             result.setMessage(e.getMessage());
             return result;

@@ -15,12 +15,12 @@
  */
 package com.navercorp.pinpoint.web.service;
 
-import java.util.List;
-
 import com.navercorp.pinpoint.web.vo.UserGroup;
 import com.navercorp.pinpoint.web.vo.UserGroupMember;
-import com.navercorp.pinpoint.web.vo.UserGroupMemberParam;
+import com.navercorp.pinpoint.web.vo.UserPhoneInfo;
 import com.navercorp.pinpoint.web.vo.exception.PinpointUserGroupException;
+
+import java.util.List;
 
 /**
  * @author minwoo.jung
@@ -49,6 +49,8 @@ public interface UserGroupService {
     void updateMember(UserGroupMember userGroupMember);
 
     List<String> selectPhoneNumberOfMember(String userGroupId);
+
+    List<UserPhoneInfo> selectPhoneInfoOfMember(String userGroupId);
 
     List<String> selectEmailOfMember(String userGroupId);
 

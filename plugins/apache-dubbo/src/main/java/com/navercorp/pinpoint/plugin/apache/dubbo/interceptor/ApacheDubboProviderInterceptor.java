@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 NAVER Corp.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.navercorp.pinpoint.plugin.apache.dubbo.interceptor;
 
 import com.navercorp.pinpoint.bootstrap.context.MethodDescriptor;
@@ -18,14 +34,10 @@ import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.RpcInvocation;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.util.Enumeration;
+import java.util.Map;
 
 /**
  * @author K
- * @date 2019-06-14-14:00
  */
 public class ApacheDubboProviderInterceptor extends SpanRecursiveAroundInterceptor {
     private final PLogger logger = PLoggerFactory.getLogger(this.getClass());
@@ -99,15 +111,71 @@ public class ApacheDubboProviderInterceptor extends SpanRecursiveAroundIntercept
             if (parentApplicationName != null) {
                 final short parentApplicationType = NumberUtils.parseShort(invocation.getAttachment(ApacheDubboConstants.META_PARENT_APPLICATION_TYPE), ServiceType.UNDEFINED.getCode());
                 recorder.recordParentApplication(parentApplicationName, parentApplicationType);
-                // Pinpoint finds caller - callee relation by matching caller's end point and callee's acceptor host.
-                // https://github.com/naver/pinpoint/issues/1395
-                String localHost = getLocalHost();
-                if (localHost.equals(rpcContext.getLocalHost())) {
-                    recorder.recordAcceptorHost(rpcContext.getLocalAddressString());
+
+                final String host = invocation.getAttachment(ApacheDubboConstants.META_HOST);
+                if (host != null) {
+                    recorder.recordAcceptorHost(host);
                 } else {
-                    recorder.recordAcceptorHost(localHost + ":" + rpcContext.getLocalPort());
+                    // old version fallback
+                    final String estimatedLocalHost = getLocalHost(rpcContext);
+                    if (estimatedLocalHost != null) {
+                        recorder.recordAcceptorHost(estimatedLocalHost);
+                    }
                 }
             }
+        }
+        //clear attachments
+        this.clearAttachments(rpcContext);
+    }
+
+    /**
+     * clear {@link org.apache.dubbo.rpc.RpcContext#getAttachments()} trace header.
+     * you should to know,since apache dubbo 2.6.2 version.
+     * {@link org.apache.dubbo.rpc.protocol.AbstractInvoker#invoke(org.apache.dubbo.rpc.Invocation)}
+     * will force put {@link org.apache.dubbo.rpc.RpcContext#getAttachments()} to current Invocation
+     * replace origin invocation.addAttachmentsIfAbsent(context) method;
+     * to imagine if application(B) methodB called by application(A), application(B) is dubbo provider, methodB call next dubbo application(C).
+     * when application(C) received trace header is overwrite by application(B) received trace header.
+     *
+     * @param rpcContext
+     */
+    private void clearAttachments(RpcContext rpcContext) {
+        Map<String, String> attachments = rpcContext.getAttachments();
+        if (attachments != null) {
+            attachments.remove(ApacheDubboConstants.META_TRANSACTION_ID);
+            attachments.remove(ApacheDubboConstants.META_SPAN_ID);
+            attachments.remove(ApacheDubboConstants.META_PARENT_SPAN_ID);
+            attachments.remove(ApacheDubboConstants.META_PARENT_APPLICATION_TYPE);
+            attachments.remove(ApacheDubboConstants.META_PARENT_APPLICATION_NAME);
+            attachments.remove(ApacheDubboConstants.META_FLAGS);
+            attachments.remove(ApacheDubboConstants.META_HOST);
+        }
+    }
+
+    private String getLocalHost(RpcContext rpcContext) {
+        // Pinpoint finds caller - callee relation by matching caller's end point and callee's acceptor host.
+        // https://github.com/naver/pinpoint/issues/1395
+        // @Nullable
+        final String localHost = NetworkUtils.getLocalHost();
+        if (localHost == null) {
+            logger.debug("NetworkUtils.getLocalHost() is null");
+        }
+        final String rpcContextLocalhost = rpcContext.getLocalHost();
+        if (rpcContextLocalhost == null) {
+            logger.debug("rpcContext.getLocalHost() is null");
+        }
+        if (localHost == null && rpcContextLocalhost == null) {
+            logger.debug("localHost == null && rpcContextLocalhost == null");
+            return null;
+        }
+        if (localHost == null) {
+            logger.debug("return rpcContextLocalhost:{}", rpcContextLocalhost);
+            return rpcContextLocalhost;
+        }
+        if (localHost.equals(rpcContextLocalhost)) {
+            return rpcContext.getLocalAddressString();
+        } else {
+            return localHost + ":" + rpcContext.getLocalPort();
         }
     }
 
@@ -134,27 +202,4 @@ public class ApacheDubboProviderInterceptor extends SpanRecursiveAroundIntercept
         }
     }
 
-    private String getLocalHost() {
-        try {
-            Enumeration<NetworkInterface> allNetInterfaces = NetworkInterface.getNetworkInterfaces();
-            while (allNetInterfaces.hasMoreElements()) {
-                NetworkInterface netInterface = allNetInterfaces.nextElement();
-                String name = netInterface.getName();
-                if (!name.contains("docker") && !name.contains("lo")) {
-                    Enumeration<InetAddress> addresses = netInterface.getInetAddresses();
-                    while (addresses.hasMoreElements()) {
-                        InetAddress ip = addresses.nextElement();
-                        if (ip != null && ip instanceof Inet4Address  && !ip.isLoopbackAddress()
-                                && ip.getHostAddress().indexOf(":") == -1) {
-                            return ip.getHostAddress();
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("failed to get local host", e);
-        }
-
-        return null;
-    }
 }

@@ -37,9 +37,8 @@ public class DefaultAnnotationKeyMatcherService implements AnnotationKeyMatcherS
 
     private final AnnotationKeyMatcherLocator annotationKeyMatcherLocator;
 
-    @Autowired
     public DefaultAnnotationKeyMatcherService(TraceMetadataLoaderService typeLoaderService) {
-        Objects.requireNonNull(typeLoaderService, "typeLoaderService must not be null");
+        Objects.requireNonNull(typeLoaderService, "typeLoaderService");
         this.annotationKeyMatcherLocator = typeLoaderService.getAnnotationKeyMatcherLocator();
     }
 

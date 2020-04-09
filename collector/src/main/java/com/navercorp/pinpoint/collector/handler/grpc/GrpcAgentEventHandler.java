@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author Taejin Koo
@@ -45,19 +46,24 @@ import java.util.List;
 @Service
 public class GrpcAgentEventHandler implements SimpleHandler {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
-    private final boolean isDebug = logger.isDebugEnabled();
 
-    @Autowired
-    private GrpcAgentEventMapper agentEventMapper;
+    private final GrpcAgentEventMapper agentEventMapper;
 
-    @Autowired
-    private GrpcAgentEventBatchMapper agentEventBatchMapper;
+    private final GrpcAgentEventBatchMapper agentEventBatchMapper;
 
-    @Autowired
-    private AgentEventMessageSerializerV1 agentEventMessageSerializerV1;
+    private final AgentEventMessageSerializerV1 agentEventMessageSerializerV1;
 
-    @Autowired
-    private AgentEventService agentEventService;
+    private final AgentEventService agentEventService;
+
+    public GrpcAgentEventHandler(GrpcAgentEventMapper agentEventMapper,
+                                 GrpcAgentEventBatchMapper agentEventBatchMapper,
+                                 AgentEventMessageSerializerV1 agentEventMessageSerializerV1,
+                                 AgentEventService agentEventService) {
+        this.agentEventMapper = Objects.requireNonNull(agentEventMapper, "agentEventMapper");
+        this.agentEventBatchMapper = Objects.requireNonNull(agentEventBatchMapper, "agentEventBatchMapper");
+        this.agentEventMessageSerializerV1 = Objects.requireNonNull(agentEventMessageSerializerV1, "agentEventMessageSerializerV1");
+        this.agentEventService = Objects.requireNonNull(agentEventService, "agentEventService");
+    }
 
     @Override
     public void handleSimple(ServerRequest serverRequest) {
@@ -73,7 +79,7 @@ public class GrpcAgentEventHandler implements SimpleHandler {
     }
 
     private void handleAgentStat(PAgentStat agentStat) {
-        if (isDebug) {
+        if (logger.isDebugEnabled()) {
             logger.debug("Handle PAgentStat={}", MessageFormatUtils.debugLog(agentStat));
         }
 
@@ -82,11 +88,16 @@ public class GrpcAgentEventHandler implements SimpleHandler {
         if (agentEventBo == null) {
             return;
         }
-        insert(agentEventBo);
+
+        try {
+            insert(agentEventBo);
+        } catch (Exception e) {
+            logger.warn("Failed to handle agentStat={}", MessageFormatUtils.debugLog(agentStat), e);
+        }
     }
 
     private void handleAgentStatBatch(PAgentStatBatch agentStatBatch) {
-        if (isDebug) {
+        if (logger.isDebugEnabled()) {
             logger.debug("Handle PAgentStatBatch={}", MessageFormatUtils.debugLog(agentStatBatch));
         }
 
@@ -96,21 +107,20 @@ public class GrpcAgentEventHandler implements SimpleHandler {
             return;
         }
 
-        for (AgentEventBo agentEventBo : agentEventBoList) {
-            insert(agentEventBo);
+        try {
+            for (AgentEventBo agentEventBo : agentEventBoList) {
+                insert(agentEventBo);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to handle agentStatBatch={}", MessageFormatUtils.debugLog(agentStatBatch), e);
         }
     }
 
     private void insert(final AgentEventBo agentEventBo) {
-        try {
-            final Object eventMessage = getEventMessage(agentEventBo);
-            final byte[] eventBody = agentEventMessageSerializerV1.serialize(agentEventBo.getEventType(), eventMessage);
-            agentEventBo.setEventBody(eventBody);
-            this.agentEventService.insert(agentEventBo);
-        } catch (Exception e) {
-            logger.warn("Failed to insert agentEventBo={}", agentEventBo, e);
-            return;
-        }
+        final Object eventMessage = getEventMessage(agentEventBo);
+        final byte[] eventBody = agentEventMessageSerializerV1.serialize(agentEventBo.getEventType(), eventMessage);
+        agentEventBo.setEventBody(eventBody);
+        this.agentEventService.insert(agentEventBo);
     }
 
     private Object getEventMessage(AgentEventBo agentEventBo) {

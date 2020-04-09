@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -38,13 +38,19 @@ import java.util.regex.Pattern;
  * @author netspider
  */
 public class DefaultProfilerConfig implements ProfilerConfig {
+    public static final String PROFILER_INTERCEPTOR_EXCEPTION_PROPAGATE = "profiler.interceptor.exception.propagate";
+
     private static final CommonLogger logger = StdoutCommonLoggerFactory.INSTANCE.getLogger(DefaultProfilerConfig.class.getName());
 
+    public static final String PLUGIN_DISABLE = "profiler.plugin.disable";
+    // TestAgent only
+    public static final String IMPORT_PLUGIN = "profiler.plugin.import-plugin";
 
     private final Properties properties;
 
     public static final String INSTRUMENT_ENGINE_ASM = "ASM";
-    private static final String DEFAULT_TRANSPORT_MODULE = "THRIFT";
+
+    private static final TransportModule DEFAULT_TRANSPORT_MODULE = TransportModule.THRIFT;
 
     public static final int DEFAULT_AGENT_STAT_COLLECTION_INTERVAL_MS = 5 * 1000;
     public static final int DEFAULT_NUM_AGENT_STAT_BATCH_SEND = 6;
@@ -70,9 +76,13 @@ public class DefaultProfilerConfig implements ProfilerConfig {
     }
 
     public static ProfilerConfig load(String pinpointConfigFileName) throws IOException {
+        final Properties properties = loadProperties(pinpointConfigFileName);
+        return new DefaultProfilerConfig(properties);
+    }
+
+    private static Properties loadProperties(String pinpointConfigFileName) throws IOException {
         try {
-            Properties properties = PropertyUtils.loadProperty(pinpointConfigFileName);
-            return new DefaultProfilerConfig(properties);
+            return PropertyUtils.loadProperty(pinpointConfigFileName);
         } catch (FileNotFoundException fe) {
             if (logger.isWarnEnabled()) {
                 logger.warn(pinpointConfigFileName + " file does not exist. Please check your configuration.");
@@ -88,6 +98,8 @@ public class DefaultProfilerConfig implements ProfilerConfig {
 
     private boolean profileEnable = false;
 
+    private String activeProfile = Profiles.DEFAULT_ACTIVE_PROFILE;
+
     private String profileInstrumentEngine = INSTRUMENT_ENGINE_ASM;
     private boolean instrumentMatcherEnable = true;
     private InstrumentMatcherCacheConfig instrumentMatcherCacheConfig = new InstrumentMatcherCacheConfig();
@@ -97,7 +109,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
     @VisibleForTesting
     private boolean staticResourceCleanup = false;
 
-    private String transportModule = DEFAULT_TRANSPORT_MODULE;
+    private TransportModule transportModule = DEFAULT_TRANSPORT_MODULE;
 
     private ThriftTransportConfig thriftTransportConfig;
 
@@ -159,15 +171,25 @@ public class DefaultProfilerConfig implements ProfilerConfig {
 
     public DefaultProfilerConfig(Properties properties) {
         if (properties == null) {
-            throw new NullPointerException("properties must not be null");
+            throw new NullPointerException("properties");
         }
         this.properties = properties;
         readPropertyValues();
     }
 
+
     @Override
-    public String getTransportModule() {
+    public String getActiveProfile() {
+        return activeProfile;
+    }
+
+    @Override
+    public TransportModule getTransportModule() {
         return transportModule;
+    }
+
+    public void setTransportModule(TransportModule transportModule) {
+        this.transportModule = transportModule;
     }
 
     @Override
@@ -545,6 +567,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
         return staticResourceCleanup;
     }
 
+    @Deprecated
     public void setStaticResourceCleanup(boolean staticResourceCleanup) {
         this.staticResourceCleanup = staticResourceCleanup;
     }
@@ -588,6 +611,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
         return callStackMaxDepth;
     }
 
+    @Deprecated
     public void setCallStackMaxDepth(int callStackMaxDepth) {
         this.callStackMaxDepth = callStackMaxDepth;
     }
@@ -641,6 +665,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
     void readPropertyValues() {
 
         this.profileEnable = readBoolean("profiler.enable", true);
+        this.activeProfile = readString(Profiles.ACTIVE_PROFILE_KEY, Profiles.DEFAULT_ACTIVE_PROFILE);
         this.profileInstrumentEngine = readString("profiler.instrument.engine", INSTRUMENT_ENGINE_ASM);
         this.instrumentMatcherEnable = readBoolean("profiler.instrument.matcher.enable", true);
 
@@ -653,7 +678,8 @@ public class DefaultProfilerConfig implements ProfilerConfig {
 
         this.interceptorRegistrySize = readInt("profiler.interceptorregistry.size", 1024 * 8);
 
-        this.transportModule = readString("profiler.transport.module", "THRIFT");
+        final String transportModuleString = readString("profiler.transport.module", DEFAULT_TRANSPORT_MODULE.name());
+        this.transportModule = TransportModule.parse(transportModuleString, DEFAULT_TRANSPORT_MODULE);
         this.thriftTransportConfig = readThriftTransportConfig(this);
 
         this.traceAgentActiveThread = readBoolean("profiler.pinpoint.activethread", true);
@@ -706,7 +732,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
 
         this.pluginLoadOrder = readList("profiler.plugin.load.order");
 
-        this.disabledPlugins = readList("profiler.plugin.disable");
+        this.disabledPlugins = readList(PLUGIN_DISABLE);
 
         // TODO have to remove        
         // profile package included in order to test "call stack view".
@@ -717,7 +743,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
             this.profilableClassFilter = new ProfilableClassFilter(profilableClass);
         }
 
-        this.propagateInterceptorException = readBoolean("profiler.interceptor.exception.propagate", false);
+        this.propagateInterceptorException = readBoolean(PROFILER_INTERCEPTOR_EXCEPTION_PROPAGATE, false);
         this.supportLambdaExpressions = readBoolean("profiler.lambda.expressions.support", true);
 
         // proxy http header names
@@ -746,7 +772,7 @@ public class DefaultProfilerConfig implements ProfilerConfig {
 
     public String readString(String propertyName, String defaultValue, ValueResolver valueResolver) {
         if (valueResolver == null) {
-            throw new NullPointerException("valueResolver must not be null");
+            throw new NullPointerException("valueResolver");
         }
         String value = properties.getProperty(propertyName, defaultValue);
         value = valueResolver.resolve(value, properties);
@@ -839,7 +865,8 @@ public class DefaultProfilerConfig implements ProfilerConfig {
     public String toString() {
         final StringBuilder sb = new StringBuilder("DefaultProfilerConfig{");
         sb.append("properties=").append(properties);
-        sb.append(", profileEnable=").append(profileEnable);
+        sb.append(", profileEnable='").append(profileEnable).append('\'');
+        sb.append(", activeProfile=").append(activeProfile);
         sb.append(", profileInstrumentEngine='").append(profileInstrumentEngine).append('\'');
         sb.append(", instrumentMatcherEnable=").append(instrumentMatcherEnable);
         sb.append(", instrumentMatcherCacheConfig=").append(instrumentMatcherCacheConfig);

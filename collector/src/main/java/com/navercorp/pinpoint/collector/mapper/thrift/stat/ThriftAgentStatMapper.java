@@ -36,7 +36,9 @@ import com.navercorp.pinpoint.thrift.dto.TDataSourceList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * @author HyunGil Jeong
@@ -44,35 +46,42 @@ import java.util.Arrays;
 @Component
 public class ThriftAgentStatMapper {
 
-    @Autowired
-    private ThriftJvmGcBoMapper jvmGcBoMapper;
+    private final ThriftJvmGcBoMapper jvmGcBoMapper;
 
-    @Autowired
-    private ThriftJvmGcDetailedBoMapper jvmGcDetailedBoMapper;
+    private final ThriftJvmGcDetailedBoMapper jvmGcDetailedBoMapper;
 
-    @Autowired
-    private ThriftCpuLoadBoMapper cpuLoadBoMapper;
+    private final ThriftCpuLoadBoMapper cpuLoadBoMapper;
 
-    @Autowired
-    private ThriftTransactionBoMapper transactionBoMapper;
+    private final ThriftTransactionBoMapper transactionBoMapper;
 
-    @Autowired
-    private ThriftActiveTraceBoMapper activeTraceBoMapper;
+    private final ThriftActiveTraceBoMapper activeTraceBoMapper;
 
-    @Autowired
-    private ThriftDataSourceBoMapper dataSourceBoMapper;
+    private final ThriftDataSourceBoMapper dataSourceBoMapper;
 
-    @Autowired
-    private ThriftResponseTimeBoMapper responseTimeBoMapper;
+    private final ThriftResponseTimeBoMapper responseTimeBoMapper;
 
-    @Autowired
-    private ThriftDeadlockThreadCountBoMapper deadlockThreadCountBoMapper;
+    private final ThriftDeadlockThreadCountBoMapper deadlockThreadCountBoMapper;
 
-    @Autowired
-    private ThriftFileDescriptorBoMapper fileDescriptorBoMapper;
+    private final ThriftFileDescriptorBoMapper fileDescriptorBoMapper;
 
-    @Autowired
-    private ThriftDirectBufferBoMapper directBufferBoMapper;
+    private final ThriftDirectBufferBoMapper directBufferBoMapper;
+
+    public ThriftAgentStatMapper(ThriftJvmGcBoMapper jvmGcBoMapper, ThriftJvmGcDetailedBoMapper jvmGcDetailedBoMapper,
+                                 ThriftCpuLoadBoMapper cpuLoadBoMapper, ThriftTransactionBoMapper transactionBoMapper,
+                                 ThriftActiveTraceBoMapper activeTraceBoMapper, ThriftDataSourceBoMapper dataSourceBoMapper,
+                                 ThriftResponseTimeBoMapper responseTimeBoMapper, ThriftDeadlockThreadCountBoMapper deadlockThreadCountBoMapper,
+                                 ThriftFileDescriptorBoMapper fileDescriptorBoMapper, ThriftDirectBufferBoMapper directBufferBoMapper) {
+        this.jvmGcBoMapper = Objects.requireNonNull(jvmGcBoMapper, "jvmGcBoMapper");
+        this.jvmGcDetailedBoMapper = Objects.requireNonNull(jvmGcDetailedBoMapper, "jvmGcDetailedBoMapper");
+        this.cpuLoadBoMapper = Objects.requireNonNull(cpuLoadBoMapper, "cpuLoadBoMapper");
+        this.transactionBoMapper = Objects.requireNonNull(transactionBoMapper, "transactionBoMapper");
+        this.activeTraceBoMapper = Objects.requireNonNull(activeTraceBoMapper, "activeTraceBoMapper");
+        this.dataSourceBoMapper = Objects.requireNonNull(dataSourceBoMapper, "dataSourceBoMapper");
+        this.responseTimeBoMapper = Objects.requireNonNull(responseTimeBoMapper, "responseTimeBoMapper");
+        this.deadlockThreadCountBoMapper = Objects.requireNonNull(deadlockThreadCountBoMapper, "deadlockThreadCountBoMapper");
+        this.fileDescriptorBoMapper = Objects.requireNonNull(fileDescriptorBoMapper, "fileDescriptorBoMapper");
+        this.directBufferBoMapper = Objects.requireNonNull(directBufferBoMapper, "directBufferBoMapper");
+    }
 
     public AgentStatBo map(TAgentStat tAgentStat) {
         if (tAgentStat == null) {
@@ -87,34 +96,34 @@ public class ThriftAgentStatMapper {
         if (tAgentStat.isSetGc()) {
             JvmGcBo jvmGcBo = this.jvmGcBoMapper.map(tAgentStat.getGc());
             setBaseData(jvmGcBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setJvmGcBos(Arrays.asList(jvmGcBo));
+            agentStatBo.setJvmGcBos(asList(jvmGcBo));
         }
         // jvmGcDetailed
         if (tAgentStat.isSetGc()) {
             if (tAgentStat.getGc().isSetJvmGcDetailed()) {
                 JvmGcDetailedBo jvmGcDetailedBo = this.jvmGcDetailedBoMapper.map(tAgentStat.getGc().getJvmGcDetailed());
                 setBaseData(jvmGcDetailedBo, agentId, startTimestamp, timestamp);
-                agentStatBo.setJvmGcDetailedBos(Arrays.asList(jvmGcDetailedBo));
+                agentStatBo.setJvmGcDetailedBos(asList(jvmGcDetailedBo));
             }
         }
         // cpuLoad
         if (tAgentStat.isSetCpuLoad()) {
             CpuLoadBo cpuLoadBo = this.cpuLoadBoMapper.map(tAgentStat.getCpuLoad());
             setBaseData(cpuLoadBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setCpuLoadBos(Arrays.asList(cpuLoadBo));
+            agentStatBo.setCpuLoadBos(asList(cpuLoadBo));
         }
         // transaction
         if (tAgentStat.isSetTransaction()) {
             TransactionBo transactionBo = this.transactionBoMapper.map(tAgentStat.getTransaction());
             setBaseData(transactionBo, agentId, startTimestamp, timestamp);
             transactionBo.setCollectInterval(tAgentStat.getCollectInterval());
-            agentStatBo.setTransactionBos(Arrays.asList(transactionBo));
+            agentStatBo.setTransactionBos(asList(transactionBo));
         }
         // activeTrace
         if (tAgentStat.isSetActiveTrace() && tAgentStat.getActiveTrace().isSetHistogram()) {
             ActiveTraceBo activeTraceBo = this.activeTraceBoMapper.map(tAgentStat.getActiveTrace());
             setBaseData(activeTraceBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setActiveTraceBos(Arrays.asList(activeTraceBo));
+            agentStatBo.setActiveTraceBos(asList(activeTraceBo));
         }
         // datasource
         if (tAgentStat.isSetDataSourceList()) {
@@ -127,34 +136,38 @@ public class ThriftAgentStatMapper {
                 setBaseData(dataSourceBo, agentId, startTimestamp, timestamp);
                 dataSourceListBo.add(dataSourceBo);
             }
-            agentStatBo.setDataSourceListBos(Arrays.asList(dataSourceListBo));
+            agentStatBo.setDataSourceListBos(asList(dataSourceListBo));
         }
         // response time
         if (tAgentStat.isSetResponseTime()) {
             ResponseTimeBo responseTimeBo = this.responseTimeBoMapper.map(tAgentStat.getResponseTime());
             setBaseData(responseTimeBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setResponseTimeBos(Arrays.asList(responseTimeBo));
+            agentStatBo.setResponseTimeBos(asList(responseTimeBo));
         }
         // deadlock
         if (tAgentStat.isSetDeadlock()) {
             DeadlockThreadCountBo deadlockThreadCountBo = this.deadlockThreadCountBoMapper.map(tAgentStat.getDeadlock());
             setBaseData(deadlockThreadCountBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setDeadlockThreadCountBos(Arrays.asList(deadlockThreadCountBo));
+            agentStatBo.setDeadlockThreadCountBos(asList(deadlockThreadCountBo));
         }
         // fileDescriptor
         if (tAgentStat.isSetFileDescriptor()) {
             FileDescriptorBo fileDescriptorBo = this.fileDescriptorBoMapper.map(tAgentStat.getFileDescriptor());
             setBaseData(fileDescriptorBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setFileDescriptorBos(Arrays.asList(fileDescriptorBo));
+            agentStatBo.setFileDescriptorBos(asList(fileDescriptorBo));
         }
         // directBuffer
         if (tAgentStat.isSetDirectBuffer()) {
             DirectBufferBo directBufferBo = this.directBufferBoMapper.map(tAgentStat.getDirectBuffer());
             setBaseData(directBufferBo, agentId, startTimestamp, timestamp);
-            agentStatBo.setDirectBufferBos(Arrays.asList(directBufferBo));
+            agentStatBo.setDirectBufferBos(asList(directBufferBo));
         }
 
         return agentStatBo;
+    }
+
+    private <T> List<T> asList(T object) {
+        return Collections.singletonList(object);
     }
 
     private void setBaseData(AgentStatDataPoint agentStatDataPoint, String agentId, long startTimestamp, long timestamp) {

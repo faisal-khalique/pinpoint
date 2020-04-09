@@ -21,7 +21,6 @@ import com.navercorp.pinpoint.collector.mapper.grpc.stat.GrpcAgentStatBatchMappe
 import com.navercorp.pinpoint.collector.mapper.grpc.stat.GrpcAgentStatMapper;
 import com.navercorp.pinpoint.collector.service.AgentStatService;
 import com.navercorp.pinpoint.common.server.bo.stat.AgentStatBo;
-import com.navercorp.pinpoint.grpc.AgentHeaderFactory;
 import com.navercorp.pinpoint.grpc.Header;
 import com.navercorp.pinpoint.grpc.MessageFormatUtils;
 import com.navercorp.pinpoint.grpc.server.ServerContext;
@@ -36,6 +35,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * @author jaehong.kim
@@ -45,14 +46,19 @@ public class GrpcAgentStatHandlerV2 implements SimpleHandler {
     private final Logger logger = LoggerFactory.getLogger(this.getClass().getName());
     private final boolean isDebug = logger.isDebugEnabled();
 
-    @Autowired
-    private GrpcAgentStatMapper agentStatMapper;
+    private final GrpcAgentStatMapper agentStatMapper;
 
-    @Autowired
-    private GrpcAgentStatBatchMapper agentStatBatchMapper;
+    private final GrpcAgentStatBatchMapper agentStatBatchMapper;
 
-    @Autowired(required = false)
-    private List<AgentStatService> agentStatServiceList = Collections.emptyList();
+    private final List<AgentStatService> agentStatServiceList;
+
+    public GrpcAgentStatHandlerV2(GrpcAgentStatMapper agentStatMapper,
+                                  GrpcAgentStatBatchMapper agentStatBatchMapper,
+                                  Optional<List<AgentStatService>> agentStatServiceList) {
+        this.agentStatMapper = Objects.requireNonNull(agentStatMapper, "agentStatMapper");
+        this.agentStatBatchMapper = Objects.requireNonNull(agentStatBatchMapper, "agentStatBatchMapper");
+        this.agentStatServiceList = Objects.requireNonNull(agentStatServiceList, "agentStatServiceList2").orElse(Collections.emptyList());
+    }
 
     @Override
     public void handleSimple(ServerRequest serverRequest) {
@@ -78,7 +84,11 @@ public class GrpcAgentStatHandlerV2 implements SimpleHandler {
         }
 
         for (AgentStatService agentStatService : agentStatServiceList) {
-            agentStatService.save(agentStatBo);
+            try {
+                agentStatService.save(agentStatBo);
+            } catch (Exception e) {
+                logger.warn("Failed to handle service={}, AgentStat={}", agentStatService, MessageFormatUtils.debugLog(agentStat), e);
+            }
         }
     }
 
@@ -94,7 +104,11 @@ public class GrpcAgentStatHandlerV2 implements SimpleHandler {
         }
 
         for (AgentStatService agentStatService : agentStatServiceList) {
-            agentStatService.save(agentStatBo);
+            try {
+                agentStatService.save(agentStatBo);
+            } catch (Exception e) {
+                logger.warn("Failed to handle service={}, AgentStatBatch={}", agentStatService, MessageFormatUtils.debugLog(agentStatBatch), e);
+            }
         }
     }
 }

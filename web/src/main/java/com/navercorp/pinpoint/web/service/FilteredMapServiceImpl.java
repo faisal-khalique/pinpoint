@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,7 @@ import com.navercorp.pinpoint.common.server.bo.SpanBo;
 import com.navercorp.pinpoint.common.server.bo.SpanEventBo;
 import com.navercorp.pinpoint.common.util.CollectionUtils;
 import com.navercorp.pinpoint.loader.service.ServiceTypeRegistryService;
-import com.navercorp.pinpoint.common.util.TransactionId;
+import com.navercorp.pinpoint.common.profiler.util.TransactionId;
 import com.navercorp.pinpoint.web.applicationmap.ApplicationMap;
 import com.navercorp.pinpoint.web.applicationmap.ApplicationMapBuilder;
 import com.navercorp.pinpoint.web.applicationmap.ApplicationMapBuilderFactory;
@@ -59,6 +59,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -71,29 +73,34 @@ public class FilteredMapServiceImpl implements FilteredMapService {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-    @Autowired
-    private AgentInfoService agentInfoService;
+    private final AgentInfoService agentInfoService;
 
-    @Autowired
-    @Qualifier("hbaseTraceDaoFactory")
-    private TraceDao traceDao;
+    private final TraceDao traceDao;
 
-    @Autowired
-    private ApplicationTraceIndexDao applicationTraceIndexDao;
+    private final ApplicationTraceIndexDao applicationTraceIndexDao;
 
-    @Autowired
-    private ServiceTypeRegistryService registry;
+    private final ServiceTypeRegistryService registry;
 
-    @Autowired
-    private ApplicationFactory applicationFactory;
+    private final ApplicationFactory applicationFactory;
     
-    @Autowired(required=false)
-    private ServerMapDataFilter serverMapDataFilter;
+    private final ServerMapDataFilter serverMapDataFilter;
 
-    @Autowired
-    private ApplicationMapBuilderFactory applicationMapBuilderFactory;
+    private final ApplicationMapBuilderFactory applicationMapBuilderFactory;
 
     private static final Object V = new Object();
+
+    public FilteredMapServiceImpl(AgentInfoService agentInfoService,
+                                  @Qualifier("hbaseTraceDaoFactory") TraceDao traceDao, ApplicationTraceIndexDao applicationTraceIndexDao,
+                                  ServiceTypeRegistryService registry, ApplicationFactory applicationFactory,
+                                  Optional<ServerMapDataFilter> serverMapDataFilter, ApplicationMapBuilderFactory applicationMapBuilderFactory) {
+        this.agentInfoService = Objects.requireNonNull(agentInfoService, "agentInfoService");
+        this.traceDao = Objects.requireNonNull(traceDao, "traceDao");
+        this.applicationTraceIndexDao = Objects.requireNonNull(applicationTraceIndexDao, "applicationTraceIndexDao");
+        this.registry = Objects.requireNonNull(registry, "registry");
+        this.applicationFactory = Objects.requireNonNull(applicationFactory, "applicationFactory");
+        this.serverMapDataFilter = Objects.requireNonNull(serverMapDataFilter, "serverMapDataFilter").orElse(null);
+        this.applicationMapBuilderFactory = Objects.requireNonNull(applicationMapBuilderFactory, "applicationMapBuilderFactory");
+    }
 
     @Override
     public LimitedScanResult<List<TransactionId>> selectTraceIdsFromApplicationTraceIndex(String applicationName, Range range, int limit) {
@@ -103,10 +110,10 @@ public class FilteredMapServiceImpl implements FilteredMapService {
     @Override
     public LimitedScanResult<List<TransactionId>> selectTraceIdsFromApplicationTraceIndex(String applicationName, Range range, int limit, boolean backwardDirection) {
         if (applicationName == null) {
-            throw new NullPointerException("applicationName must not be null");
+            throw new NullPointerException("applicationName");
         }
         if (range == null) {
-            throw new NullPointerException("range must not be null");
+            throw new NullPointerException("range");
         }
         if (logger.isTraceEnabled()) {
             logger.trace("scan(selectTraceIdsFromApplicationTraceIndex) {}, {}", applicationName, range);
@@ -118,10 +125,10 @@ public class FilteredMapServiceImpl implements FilteredMapService {
     @Override
     public LimitedScanResult<List<TransactionId>> selectTraceIdsFromApplicationTraceIndex(String applicationName, SelectedScatterArea area, int limit) {
         if (applicationName == null) {
-            throw new NullPointerException("applicationName must not be null");
+            throw new NullPointerException("applicationName");
         }
         if (area == null) {
-            throw new NullPointerException("area must not be null");
+            throw new NullPointerException("area");
         }
         if (logger.isTraceEnabled()) {
             logger.trace("scan(selectTraceIdsFromApplicationTraceIndex) {}, {}", applicationName, area);
@@ -134,13 +141,13 @@ public class FilteredMapServiceImpl implements FilteredMapService {
     @Deprecated
     public LoadFactor linkStatistics(Range range, List<TransactionId> traceIdSet, Application sourceApplication, Application destinationApplication, Filter<SpanBo> filter) {
         if (sourceApplication == null) {
-            throw new NullPointerException("sourceApplication must not be null");
+            throw new NullPointerException("sourceApplication");
         }
         if (destinationApplication == null) {
-            throw new NullPointerException("destApplicationName must not be null");
+            throw new NullPointerException("destApplicationName");
         }
         if (filter == null) {
-            throw new NullPointerException("filter must not be null");
+            throw new NullPointerException("filter");
         }
 
         StopWatch watch = new StopWatch();
@@ -204,13 +211,13 @@ public class FilteredMapServiceImpl implements FilteredMapService {
     @Override
     public ApplicationMap selectApplicationMap(TransactionId transactionId, int version) {
         if (transactionId == null) {
-            throw new NullPointerException("transactionId must not be null");
+            throw new NullPointerException("transactionId");
         }
         List<TransactionId> transactionIdList = Collections.singletonList(transactionId);
         // FIXME from,to -1
         Range range = new Range(-1, -1);
 
-        final List<List<SpanBo>> filterList = selectFilteredSpan(transactionIdList, Filter.NONE);
+        final List<List<SpanBo>> filterList = selectFilteredSpan(transactionIdList, Filter.acceptAllFilter());
         FilteredMapBuilder filteredMapBuilder = new FilteredMapBuilder(applicationFactory, registry, range, version);
         filteredMapBuilder.serverMapDataFilter(serverMapDataFilter);
         filteredMapBuilder.addTransactions(filterList);
@@ -223,10 +230,10 @@ public class FilteredMapServiceImpl implements FilteredMapService {
     @Override
     public ApplicationMap selectApplicationMapWithScatterData(List<TransactionId> transactionIdList, Range originalRange, Range scanRange, int xGroupUnit, int yGroupUnit, Filter<SpanBo> filter, int version) {
         if (transactionIdList == null) {
-            throw new NullPointerException("transactionIdList must not be null");
+            throw new NullPointerException("transactionIdList");
         }
         if (filter == null) {
-            throw new NullPointerException("filter must not be null");
+            throw new NullPointerException("filter");
         }
 
         StopWatch watch = new StopWatch();
@@ -282,7 +289,7 @@ public class FilteredMapServiceImpl implements FilteredMapService {
 
     private List<TransactionId> recursiveCallFilter(List<TransactionId> transactionIdList) {
         if (transactionIdList == null) {
-            throw new NullPointerException("transactionIdList must not be null");
+            throw new NullPointerException("transactionIdList");
         }
 
         List<TransactionId> crashKey = new ArrayList<>();

@@ -30,6 +30,8 @@ import com.navercorp.pinpoint.thrift.dto.TSpanChunk;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
+
 /**
  * @author emeroad
  */
@@ -38,11 +40,14 @@ public class ThriftSpanChunkHandler implements SimpleHandler {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Autowired
-    private TraceService traceService;
+    private final TraceService traceService;
 
-    @Autowired
-    private SpanFactory spanFactory;
+    private final SpanFactory spanFactory;
+
+    public ThriftSpanChunkHandler(TraceService traceService, SpanFactory spanFactory) {
+        this.traceService = Objects.requireNonNull(traceService, "traceService");
+        this.spanFactory = Objects.requireNonNull(spanFactory, "spanFactory");
+    }
 
     @Override
     public void handleSimple(ServerRequest serverRequest) {
@@ -62,7 +67,7 @@ public class ThriftSpanChunkHandler implements SimpleHandler {
             final SpanChunkBo spanChunkBo = this.spanFactory.buildSpanChunkBo(tbase);
             this.traceService.insertSpanChunk(spanChunkBo);
         } catch (Exception e) {
-            logger.warn("SpanChunk handle error Caused:{}", e.getMessage(), e);
+            logger.warn("Failed to handle SpanChunk={}, Caused={}", tbase, e.getMessage(), e);
         }
     }
 }

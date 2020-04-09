@@ -1,11 +1,11 @@
 /*
- * Copyright 2014 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,7 +23,7 @@ import com.navercorp.pinpoint.common.hbase.HbaseTable;
 import com.navercorp.pinpoint.common.hbase.HbaseTableConstatns;
 import com.navercorp.pinpoint.common.hbase.RowMapper;
 import com.navercorp.pinpoint.common.hbase.TableNameProvider;
-import com.navercorp.pinpoint.common.util.TimeSlot;
+import com.navercorp.pinpoint.common.server.util.TimeSlot;
 import com.navercorp.pinpoint.common.util.TimeUtils;
 import com.navercorp.pinpoint.web.dao.HostApplicationMapDao;
 import com.navercorp.pinpoint.web.service.map.AcceptApplication;
@@ -43,6 +43,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -59,29 +60,28 @@ public class HbaseHostApplicationMapDao implements HostApplicationMapDao {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private int scanCacheSize = 10;
 
-    @Autowired
-    private HbaseOperations2 hbaseOperations2;
+    private final HbaseOperations2 hbaseOperations2;
 
-    @Autowired
-    private TableNameProvider tableNameProvider;
+    private final TableNameProvider tableNameProvider;
 
-    @Autowired
-    @Qualifier("hostApplicationMapperVer2")
-    private RowMapper<List<AcceptApplication>> hostApplicationMapperVer2;
+    private final RowMapper<List<AcceptApplication>> hostApplicationMapperVer2;
 
-    @Autowired
-    private TimeSlot timeSlot;
+    private final TimeSlot timeSlot;
 
-    @Autowired
-    @Qualifier("acceptApplicationRowKeyDistributor")
-    private AbstractRowKeyDistributor acceptApplicationRowKeyDistributor;
+    private final AbstractRowKeyDistributor acceptApplicationRowKeyDistributor;
+
+    public HbaseHostApplicationMapDao(HbaseOperations2 hbaseOperations2, TableNameProvider tableNameProvider, @Qualifier("hostApplicationMapperVer2") RowMapper<List<AcceptApplication>> hostApplicationMapperVer2, TimeSlot timeSlot, @Qualifier("acceptApplicationRowKeyDistributor") AbstractRowKeyDistributor acceptApplicationRowKeyDistributor) {
+        this.hbaseOperations2 = Objects.requireNonNull(hbaseOperations2, "hbaseOperations2");
+        this.tableNameProvider = Objects.requireNonNull(tableNameProvider, "tableNameProvider");
+        this.hostApplicationMapperVer2 = Objects.requireNonNull(hostApplicationMapperVer2, "hostApplicationMapperVer2");
+        this.timeSlot = Objects.requireNonNull(timeSlot, "timeSlot");
+        this.acceptApplicationRowKeyDistributor = Objects.requireNonNull(acceptApplicationRowKeyDistributor, "acceptApplicationRowKeyDistributor");
+    }
 
 
     @Override
     public Set<AcceptApplication> findAcceptApplicationName(Application fromApplication, Range range) {
-        if (fromApplication == null) {
-            throw new NullPointerException("fromApplication must not be null");
-        }
+        Objects.requireNonNull(fromApplication, "fromApplication");
         final Scan scan = createScan(fromApplication, range);
 
         TableName hostApplicationMapTableName = tableNameProvider.getTableName(HbaseTable.HOST_APPLICATION_MAP_VER2);
@@ -102,9 +102,7 @@ public class HbaseHostApplicationMapDao implements HostApplicationMapDao {
 
 
     private Scan createScan(Application parentApplication, Range range) {
-        if (parentApplication == null) {
-            throw new NullPointerException("parentApplication must not be null");
-        }
+        Objects.requireNonNull(parentApplication, "parentApplication");
 
         if (logger.isDebugEnabled()) {
             logger.debug("scan parentApplication:{}, range:{}", parentApplication, range);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NAVER Corp.
+ * Copyright 2019 NAVER Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import static com.navercorp.pinpoint.common.trace.ServiceTypeProperty.RECORD_STA
 
 /**
  * @author K
- * @date 2019-06-14-14:00
  */
 public final class ApacheDubboConstants {
     private ApacheDubboConstants() {
@@ -46,6 +45,8 @@ public final class ApacheDubboConstants {
     public static final String META_PARENT_APPLICATION_NAME = "_DUBBO_PARENT_APPLICATION_NAME";
     public static final String META_PARENT_APPLICATION_TYPE = "_DUBBO_PARENT_APPLICATION_TYPE";
     public static final String META_FLAGS = "_DUBBO_FLAGS";
+
+    public static final String META_HOST = "_DUBBO_HOST";
 
     public static final String MONITOR_SERVICE_FQCN = "org.apache.dubbo.monitor.MonitorService";
 }
